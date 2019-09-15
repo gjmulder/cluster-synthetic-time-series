@@ -15,19 +15,34 @@ set.seed(42)
 #######################################################################
 # Config variables
 
+desc <- "reduce feature range by 10X"
+short_desc <- "reduc-feat"
+
 num_ts <- 10
 # selected_features <- c('entropy', 'trend', 'seasonal_strength')
 # extra_target <- c(0.6, 0.2, 0.1)
 noise <- 0.4
 features <- c('entropy', 'stl_features')
+# target_ranges_df <-
+#   data.frame(
+#     "linearity"   = c(0, 5, 10),
+#     "trend"       = c(0:2) / 3,
+#     "spike"       = c(0:2) / 3,
+#     "curvature"   = c(-5, 0, 5)
+#   )
+
 target_ranges_df <-
   data.frame(
-    "linearity"   = c(0, 5, 10),
-    "trend"       = c(0:2) / 3,
-    "spike"       = c(0:2) / 3,
-    "curvature"   = c(-5, 0, 5)
+    "linearity"   = c(0, 5, 10) / 10.0,
+    "trend"       = 0.5 + c(-1:1) / 10.0,
+    "spike"       = 0.5 + c(-1:1) / 10.0,
+    "curvature"   = c(-5, 0, 5) / 10.0
   )
 targets_df <- as.data.frame(t(expand.grid(target_ranges_df)))
+targets_df <-
+  rbind(targets_df, sample(trunc(num_ts / 2):trunc(3 * num_ts / 2), size =
+                             ncol(targets_df), replace = TRUE))
+
 extra_features <- c("entropy")
 extra_targets <- c(noise)
 
@@ -36,18 +51,19 @@ extra_targets <- c(noise)
 #######################################################################
 # Generate synthetic time series
 
-gen_ts <- function(targets, n) {
-  n_rand <- sample(trunc(n / 2):trunc(3 * n / 2), 1)
+gen_ts <- function(targets_n) {
+  targets <- head(targets_n, -1)
+  n <- tail(targets_n, 1)
   print(paste0("targets=(",
                paste0(targets, collapse = ","),
                "), n=",
-               n_rand))
+               n))
 
   df_ts <- as.data.frame(
     generate_ts_with_target(
       parallel = TRUE,
       # seed = 42,
-      n = n_rand,
+      n = n,
       ts.length = 100,
       freq = 12,
       seasonal = 1,
@@ -57,32 +73,41 @@ gen_ts <- function(targets, n) {
     )
   )
   names(df_ts) <-
-    paste0("t", paste0(targets, collapse = "-"), "_", 1:n_rand)
+    paste0("t", paste0(targets, collapse = "-"), "_", 1:n)
   return(df_ts)
 }
 
-tsl <- lapply(targets_df, gen_ts, num_ts)
+tsl <- lapply(targets_df, gen_ts)
 ts_df <- do.call("cbind", tsl)
 tsl2 <- as.list(ts_df)
 
-#######################################################################
+######################################################################
 
 synth_data_fname <-
   paste0(
-    "nfeat=",
+    short_desc,
+    "_nfeat=",
     ncol(targets_df),
-    "lfeat=",
+    "_lfeat=",
     nrow(target_ranges_df),
     "_feat=",
     paste0(rownames(targets_df), collapse = ","),
     "_efeat=",
     paste0(extra_features, collapse = ","),
     "_etgt=",
-    paste0(extra_targets, collapse = ","),
-    ".Rdata"
+    paste0(extra_targets, collapse = ",")
   )
-save(tsl2, target_ranges_df, extra_features, extra_targets, file = synth_data_fname)
-# load(synth_data_fname)
+
+save(
+  desc,
+  short_desc,
+  tsl2,
+  target_ranges_df,
+  extra_features,
+  extra_targets,
+  file = paste0(synth_data_fname, ".Rdata")
+)
+# load(paste0(synth_data_fname, ".Rdata"))
 
 # add_noise_zscore <- function(ts, noise) {
 #   magnitude <- max(abs(ts))
@@ -148,8 +173,9 @@ int_metrics_df %>%
 
 title <-
   paste0(
-    num_ts * ncol(targets_df),
-    " TS, uniq feats=",
+    "Num TS=",
+    length(tsl2),
+    ", uniq feats=",
     ncol(targets_df),
     ", feat len=",
     nrow(target_ranges_df),
@@ -170,22 +196,14 @@ gg <-
   facet_wrap( ~ metric, scales = "free")
 print(gg)
 
-ggplot_fname <-
-  paste0(
+ggsave(
+  paste0(paste0(
     "nts=",
     length(tsl2),
-    "_noise=",
-    noise,
-    "_nfeat=",
-    ncol(targets_df),
-    "_feat=",
-    paste0(rownames(targets_df), collapse = ","),
-    "_ext=",
-    paste0(extra_targets, collapse = ","),
+    "_",
+    synth_data_fname,
     ".png"
-  )
-ggsave(
-  paste0(ggplot_fname),
+  )),
   scale = 4,
   width = 10,
   height = 10,
