@@ -21,7 +21,7 @@ short_desc <- "reduc-feat"
 num_ts <- 10
 # selected_features <- c('entropy', 'trend', 'seasonal_strength')
 # extra_target <- c(0.6, 0.2, 0.1)
-noise <- 0.4
+noise <- 0.0
 features <- c('entropy', 'stl_features')
 # target_ranges_df <-
 #   data.frame(
@@ -39,6 +39,8 @@ target_ranges_df <-
     "curvature"   = c(-5, 0, 5) / 10.0
   )
 targets_df <- as.data.frame(t(expand.grid(target_ranges_df)))
+print(paste0("Number of combination targets: ", ncol(targets_df), " "))
+
 targets_df <-
   rbind(targets_df, sample(trunc(num_ts / 2):trunc(3 * num_ts / 2), size =
                              ncol(targets_df), replace = TRUE))
