@@ -18,7 +18,7 @@ set.seed(42)
 # Config variables
 
 ts_len <- 240
-iters <- 3
+iters <- 10
 desc <-
   paste0("M4 monthly dataset, reinterpolated to ",
          ts_len,
@@ -30,15 +30,17 @@ short_desc <- paste0("m4-mon_tslen", ts_len, "_iters", iters)
 fname <- short_desc
 k_range = c(2:19)
 
-# data("M4")
+data(M4)
 monthly_m4 <-
   sample(Filter(function(l)
-    l$period == "Monthly", M4), 10000)
+    l$period == "Monthly", M4), 15000)
 print(summary(unlist(lapply(monthly_m4, function(x)
   return(x$n)))))
 monthly_m4_inter <-
   lapply(monthly_m4, function(ts)
     return(reinterpolate(ts$x, ts_len)))
+remove(M4, monthly_m4)
+gc(full = TRUE)
 
 #######################################################################
 # TS clustering
@@ -46,7 +48,7 @@ monthly_m4_inter <-
 # cl <- interactive_clustering(tsl2)
 
 # Cluster and validate
-cl_k <- tsclust(
+cl_ki <- tsclust(
   monthly_m4_inter,
   # type = "partitional",
   k = k_range,
@@ -58,10 +60,18 @@ cl_k <- tsclust(
   control = partitional_control(nrep = iters),
   parallel = TRUE
 )
+
+cl_ki_n <- lapply(cl_ki, function(cl)
+  return(cl@k))
+cl_ki_dists <- lapply(cl_ki, function(cl)
+  return(cl@cldist))
+cl_ki_clusters <- lapply(cl_ki, function(cl)
+  return(cl@cluster))
+remove(cl_ki)
 gc(full = TRUE)
 
 # Internal clustering metrics, i.e. no ground truths
-compute_metrics <- function(cl) {
+compute_metrics <- function(x) {
   metrics <-
     c(
       "ball_hall",
@@ -78,7 +88,7 @@ compute_metrics <- function(cl) {
       "sd_scat",
       "silhouette"
     )
-  return(intCriteria(cl@cldist, cl@cluster, metrics))
+  return(intCriteria(cl_ki_dists[[x]], cl_ki_clusters[[x]], metrics))
 }
 # metrics_k <-
 #   mclapply(
@@ -89,34 +99,29 @@ compute_metrics <- function(cl) {
 #     affinity.list = rep(c(2, 3), length(cl_k) / 2)
 #   )
 
-cl_idx <- 1:(iters * length(k_range))
-cl_dists <- lapply(cl_idx, function(x) return(cl_k[[x]]@cldist))
-cl_clusters <- lapply(cl_idx, function(x) return(cl_k[[x]]@cluster))
-# iter_idx <- unlist(lapply(c(1:iters), rep, length(k_range)))
+# Compute metrics for all k's for all iters
+metrics_iters <- lapply(1:length(cl_ki_n), compute_metrics)
 
-int_metrics_df <- bind_rows(metrics_k)
-int_metrics_df$k <- rep(k_range, iters)
-int_metrics_df$iter <- unlist(lapply(c(1:iters), rep, length(k_range)))
+int_metrics_df <- bind_rows(metrics_iters)
+int_metrics_df$k <- unlist(cl_ki_n)
 int_metrics_df %>%
-  gather(metric, value, -k, -iter) %>%
-  mutate(iter = as.character(iter)) ->
-  # filter(iter == 1) %>%
-  # arrange(iter, k) ->
+  gather(metric, value, -k) ->
   int_results
 
 #######################################################################
 # Plot clustering metrics
 
 title <-
-  paste0("Num TS=",
+  paste0("TS count = ",
          length(monthly_m4_inter),
-         " ",
+         ", ",
          desc)
 
 gg <-
-  ggplot(int_results) +
+  ggplot(int_results, aes(x = k, y = value)) +
   ggtitle(title) +
-  geom_line(aes(x = k, y = value, colour = iter), size = 0.5) +
+  geom_point(size = 0.25, alpha = 0.5) +
+  geom_smooth() +
   # scale_color_viridis(discrete = TRUE) +
   # geom_vline(xintercept = ncol(targets_df)) +
   facet_wrap( ~ metric, scales = "free")
