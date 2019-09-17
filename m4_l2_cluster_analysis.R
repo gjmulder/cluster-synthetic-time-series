@@ -2,10 +2,12 @@
 library(tidyr)
 library(dplyr)
 library(purrr)
-library(tsgeneration)
+library(M4comp2018)
 library(dtwclust)
+library(parallel)
 library(clusterCrit)
 library(ggplot2)
+library(viridis)
 
 set.seed(42)
 
@@ -15,127 +17,37 @@ set.seed(42)
 #######################################################################
 # Config variables
 
-desc <- "reduced feature range"
-short_desc <- "reduc-feat"
-num_ts <- 10
-noise <- 0.0
-features <- c('entropy', 'stl_features')
-# target_ranges_df <-
-#   data.frame(
-#     "linearity"   = c(0, 5, 10),
-#     "trend"       = c(0:2) / 3,
-#     "spike"       = c(0:2) / 3,
-#     "curvature"   = c(-5, 0, 5)
-#   )
+ts_len <- 240
+iters <- 3
+desc <-
+  paste0("M4 monthly dataset, reinterpolated to ",
+         ts_len,
+         " length, ",
+         iters,
+         " iteration(s)")
+short_desc <- paste0("m4-mon_tslen", ts_len, "_iters", iters)
 
-target_ranges_df <-
-  data.frame(
-    "linearity"   = c(0, 5, 10) / 10.0,
-    "trend"       = 0.5 + c(-1:1) / 10.0,
-    "spike"       = 0.5 + c(-1:1) / 10.0,
-    "curvature"   = c(-5, 0, 5) / 10.0
-  )
-targets_df <- as.data.frame(t(expand.grid(target_ranges_df)))
-print(paste0("Number of combination targets: ", ncol(targets_df), " "))
+fname <- short_desc
+k_range = c(2:19)
 
-targets_df <-
-  rbind(targets_df, sample(
-    trunc(num_ts / 2):trunc(3 * num_ts / 2),
-    size =
-      ncol(targets_df),
-    replace = TRUE
-  ))
-
-extra_features <- c("entropy")
-extra_targets <- c(noise)
-
-k_range = c(2:(2 * length(targets_df)))
-
-synth_data_fname <-
-  paste0(
-    short_desc,
-    "_nfeat=",
-    # "nfeat=",
-    ncol(targets_df),
-    "_lfeat=",
-    nrow(target_ranges_df),
-    "_feat=",
-    paste0(rownames(head(targets_df, -1)), collapse = ","),
-    "_efeat=",
-    paste0(extra_features, collapse = ","),
-    "_etgt=",
-    paste0(extra_targets, collapse = ",")
-  )
-
-# ground_truths <- unlist(lapply(1:length(vals), rep, num_ts))
-
-# #######################################################################
-# # Generate synthetic time series
-#
-# gen_ts <- function(targets_n) {
-#   targets <- head(targets_n, -1)
-#   n <- tail(targets_n, 1)
-#   print(paste0("targets=(",
-#                paste0(round(targets, 3), collapse = ","),
-#                "), n=",
-#                n))
-#
-#   df_ts <- as.data.frame(
-#     generate_ts_with_target(
-#       parallel = TRUE,
-#       # seed = 42,
-#       n = n,
-#       ts.length = 100,
-#       freq = 12,
-#       seasonal = 1,
-#       features = features,
-#       selected.features = c(colnames(target_ranges_df), extra_features),
-#       target = c(targets, extra_targets)
-#     )
-#   )
-#   names(df_ts) <-
-#     paste0("t", paste0(targets, collapse = "-"), "_", 1:n)
-#   return(df_ts)
-# }
-#
-# tsl <- lapply(targets_df, gen_ts)
-# ts_df <- do.call("cbind", tsl)
-# tsl2 <- as.list(ts_df)
-#
-# ######################################################################
-#
-# save(
-#   desc,
-#   short_desc,
-#   tsl2,
-#   target_ranges_df,
-#   extra_features,
-#   extra_targets,
-#   file = paste0(synth_data_fname, ".Rdata")
-# )
-
-load(paste0(synth_data_fname, ".Rdata"))
-
-# add_noise_zscore <- function(ts, noise) {
-#   magnitude <- max(abs(ts))
-#   noise_ts <- runif(length(ts),
-#                     min = (noise * -magnitude),
-#                     max = (noise * magnitude))
-#   # return(zscore(ts + noise_ts))
-#   return(ts + noise_ts)
-# }
-# ts_noise <- lapply(tsl2, add_noise_zscore, noise)
+# data("M4")
+monthly_m4 <-
+  sample(Filter(function(l)
+    l$period == "Monthly", M4), 10000)
+print(summary(unlist(lapply(monthly_m4, function(x)
+  return(x$n)))))
+monthly_m4_inter <-
+  lapply(monthly_m4, function(ts)
+    return(reinterpolate(ts$x, ts_len)))
 
 #######################################################################
 # TS clustering
 
-# cl <- makeCluster(2)
-# registerDoParallel(cl)
 # cl <- interactive_clustering(tsl2)
 
 # Cluster and validate
 cl_k <- tsclust(
-  tsl2,
+  monthly_m4_inter,
   # type = "partitional",
   k = k_range,
   # preproc = "NULL",
@@ -143,65 +55,84 @@ cl_k <- tsclust(
   centroid = "pam",
   seed = 42,
   trace = TRUE,
-  control = partitional_control(nrep = 1),
-  parallel = FALSE
+  control = partitional_control(nrep = iters),
+  parallel = TRUE
 )
+gc(full = TRUE)
 
+# Internal clustering metrics, i.e. no ground truths
 compute_metrics <- function(cl) {
-  # Validate clustering
-  ext_metrics = list() # extCriteria(vec, ground_truths, "all")
-  int_metrics = intCriteria(cl@cldist, cl@cluster, "all")
-  return(list(ext_metrics, int_metrics))
+  metrics <-
+    c(
+      "ball_hall",
+      "banfeld_raftery",
+      "c_index",
+      "calinski_harabasz",
+      "davies_bouldin",
+      "det_ratio",
+      "pbm",
+      "point_biserial",
+      "ratkowsky_lance",
+      # "ray_turi",
+      "sd_dis",
+      "sd_scat",
+      "silhouette"
+    )
+  return(intCriteria(cl@cldist, cl@cluster, metrics))
 }
+# metrics_k <-
+#   mclapply(
+#     cl_k,
+#     compute_metrics,
+#     mc.preschedule = FALSE,
+#     mc.cores = 2,
+#     affinity.list = rep(c(2, 3), length(cl_k) / 2)
+#   )
 
-metrics_k <- lapply(cl_k, compute_metrics)
+cl_idx <- 1:(iters * length(k_range))
+cl_dists <- lapply(cl_idx, function(x) return(cl_k[[x]]@cldist))
+cl_clusters <- lapply(cl_idx, function(x) return(cl_k[[x]]@cluster))
+# iter_idx <- unlist(lapply(c(1:iters), rep, length(k_range)))
 
-# Internal metrics, i.e. no ground truths
-int_metrics_df <- bind_rows(lapply(metrics_k, `[[`, 2))
-int_metrics_df$k = k_range
+int_metrics_df <- bind_rows(metrics_k)
+int_metrics_df$k <- rep(k_range, iters)
+int_metrics_df$iter <- unlist(lapply(c(1:iters), rep, length(k_range)))
 int_metrics_df %>%
-  gather(metric, value, -k) ->
+  gather(metric, value, -k, -iter) %>%
+  mutate(iter = as.character(iter)) ->
+  # filter(iter == 1) %>%
+  # arrange(iter, k) ->
   int_results
 
 #######################################################################
 # Plot clustering metrics
 
 title <-
-  paste0(
-    "Num TS=",
-    length(tsl2),
-    ", uniq feats=",
-    ncol(targets_df),
-    ", feat len=",
-    nrow(target_ranges_df),
-    ", tgts=(",
-    paste0(rownames(head(targets_df, -1)), collapse = ","),
-    "), +feat=(",
-    paste0(extra_features, collapse = ","),
-    "), +tgts=(",
-    paste0(extra_targets, collapse = ","),
-    ")"
-  )
+  paste0("Num TS=",
+         length(monthly_m4_inter),
+         " ",
+         desc)
 
 gg <-
   ggplot(int_results) +
   ggtitle(title) +
-  geom_point(aes(x = k, y = value), size = 0.5) +
-  geom_vline(xintercept = ncol(targets_df)) +
-  facet_wrap(~ metric, scales = "free")
+  geom_line(aes(x = k, y = value, colour = iter), size = 0.5) +
+  # scale_color_viridis(discrete = TRUE) +
+  # geom_vline(xintercept = ncol(targets_df)) +
+  facet_wrap( ~ metric, scales = "free")
 print(gg)
 
 ggsave(
   paste0(paste0(
     "nts=",
-    length(tsl2),
+    length(monthly_m4_inter),
     "_",
-    synth_data_fname,
+    fname,
     ".png"
   )),
   dpi = 100,
-  scale = 8,
-  width = 2,
+  scale = 5,
+  width = 3,
   height = 2,
   units = "in"
 )
