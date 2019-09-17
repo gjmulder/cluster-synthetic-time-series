@@ -15,13 +15,10 @@ set.seed(42)
 #######################################################################
 # Config variables
 
-desc <- "reduce feature range by 10X"
+desc <- "reduced feature range"
 short_desc <- "reduc-feat"
-
 num_ts <- 10
-# selected_features <- c('entropy', 'trend', 'seasonal_strength')
-# extra_target <- c(0.6, 0.2, 0.1)
-noise <- 0.0
+noise <- 0.8
 features <- c('entropy', 'stl_features')
 # target_ranges_df <-
 #   data.frame(
@@ -42,11 +39,17 @@ targets_df <- as.data.frame(t(expand.grid(target_ranges_df)))
 print(paste0("Number of combination targets: ", ncol(targets_df), " "))
 
 targets_df <-
-  rbind(targets_df, sample(trunc(num_ts / 2):trunc(3 * num_ts / 2), size =
-                             ncol(targets_df), replace = TRUE))
+  rbind(targets_df, sample(
+    trunc(num_ts / 2):trunc(3 * num_ts / 2),
+    size =
+      ncol(targets_df),
+    replace = TRUE
+  ))
 
 extra_features <- c("entropy")
 extra_targets <- c(noise)
+
+k_range = c(2:(2 * length(targets_df)))
 
 # ground_truths <- unlist(lapply(1:length(vals), rep, num_ts))
 
@@ -57,7 +60,7 @@ gen_ts <- function(targets_n) {
   targets <- head(targets_n, -1)
   n <- tail(targets_n, 1)
   print(paste0("targets=(",
-               paste0(targets, collapse = ","),
+               paste0(round(targets, 3), collapse = ","),
                "), n=",
                n))
 
@@ -89,11 +92,12 @@ synth_data_fname <-
   paste0(
     short_desc,
     "_nfeat=",
+    # "nfeat=",
     ncol(targets_df),
     "_lfeat=",
     nrow(target_ranges_df),
     "_feat=",
-    paste0(rownames(targets_df), collapse = ","),
+    paste0(rownames(head(targets_df, -1)), collapse = ","),
     "_efeat=",
     paste0(extra_features, collapse = ","),
     "_etgt=",
@@ -109,6 +113,7 @@ save(
   extra_targets,
   file = paste0(synth_data_fname, ".Rdata")
 )
+
 # load(paste0(synth_data_fname, ".Rdata"))
 
 # add_noise_zscore <- function(ts, noise) {
@@ -126,42 +131,30 @@ save(
 
 # cl <- makeCluster(2)
 # registerDoParallel(cl)
-ext_criteria <- function(vec)
-  extCriteria(vec, ground_truths, "all")
-
-int_criteria <- function(traj, vec)
-  intCriteria(traj, vec, "all")
-
 # cl <- interactive_clustering(tsl2)
-ts_clust_k <- function(k) {
-  cl <- tsclust(
-    tsl2,
-    k = k,
-    preproc = NULL,
-    distance = "L2",
-    centroid = "pam",
-    seed = 42,
-    trace = TRUE,
-    control = partitional_control(nrep = 1),
-    parallel = FALSE
-  )
 
+# Cluster and validate
+cl_k <- tsclust(
+  tsl2,
+  # type = "partitional",
+  k = k_range,
+  # preproc = "NULL",
+  distance = "L2",
+  centroid = "pam",
+  seed = 42,
+  trace = TRUE,
+  control = partitional_control(nrep = 1),
+  parallel = FALSE
+)
+
+compute_metrics <- function(cl) {
   # Validate clustering
-  ext_metrics = list() # ext_criteria(cl@cluster)
-  int_metrics = int_criteria(cl@cldist, cl@cluster)
+  ext_metrics = list() # extCriteria(vec, ground_truths, "all")
+  int_metrics = intCriteria(cl@cldist, cl@cluster, "all")
   return(list(ext_metrics, int_metrics))
 }
 
-# Cluster and Validate
-k_range = c(2:(2 * length(targets_df)))
-metrics_k <- lapply(k_range, ts_clust_k)
-
-# # External metrics, i.e. with known ground truths
-# ext_metrics_df <- bind_rows(lapply(metrics_k, `[[`, 1))
-# ext_metrics_df$k = k_range
-# ext_metrics_df %>%
-#   gather(metric, value, -k) ->
-#   ext_results
+metrics_k <- lapply(cl_k, compute_metrics)
 
 # Internal metrics, i.e. no ground truths
 int_metrics_df <- bind_rows(lapply(metrics_k, `[[`, 2))
@@ -182,7 +175,7 @@ title <-
     ", feat len=",
     nrow(target_ranges_df),
     ", tgts=(",
-    paste0(rownames(targets_df), collapse = ","),
+    paste0(rownames(head(targets_df, -1)), collapse = ","),
     "), +feat=(",
     paste0(extra_features, collapse = ","),
     "), +tgts=(",
@@ -195,7 +188,7 @@ gg <-
   ggtitle(title) +
   geom_point(aes(x = k, y = value), size = 0.5) +
   geom_vline(xintercept = ncol(targets_df)) +
-  facet_wrap( ~ metric, scales = "free")
+  facet_wrap(~ metric, scales = "free")
 print(gg)
 
 ggsave(
@@ -206,8 +199,9 @@ ggsave(
     synth_data_fname,
     ".png"
   )),
-  scale = 4,
-  width = 10,
-  height = 10,
-  units = "cm"
+  dpi = 100,
+  scale = 8,
+  width = 2,
+  height = 2,
+  units = "in"
 )
