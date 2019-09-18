@@ -7,33 +7,36 @@ library(dtwclust)
 library(parallel)
 library(clusterCrit)
 library(ggplot2)
-library(viridis)
 
 set.seed(42)
 
 # TODO:
-# Add single seasonality and deseasonalise using STL
+# Deseasonalise using STL
 
 #######################################################################
-# Config variables
+# Config
 
+num_ts <- 20000
 ts_len <- 240
-iters <- 10
-desc <-
-  paste0("M4 monthly dataset, reinterpolated to ",
-         ts_len,
-         " length, ",
-         iters,
-         " iteration(s)")
-short_desc <- paste0("m4-mon_tslen", ts_len, "_iters", iters)
-
-fname <- short_desc
+reps <- 10
 k_range = c(2:19)
+
+title <-
+  paste0(
+    num_ts,
+    " TS sampled from M4 monthly, reinterpolated to ",
+    ts_len,
+    " length, ",
+    reps,
+    " k-means iteration(s)"
+  )
+fname <-
+  paste0("nts", num_ts, "_m4-mon_tslen", ts_len, "_reps", reps)
 
 data(M4)
 monthly_m4 <-
   sample(Filter(function(l)
-    l$period == "Monthly", M4), 15000)
+    l$period == "Monthly", M4), num_ts)
 print(summary(unlist(lapply(monthly_m4, function(x)
   return(x$n)))))
 monthly_m4_inter <-
@@ -47,8 +50,8 @@ gc(full = TRUE)
 
 # cl <- interactive_clustering(tsl2)
 
-# Cluster and validate
-cl_ki <- tsclust(
+# Cluster
+cl_k_reps <- tsclust(
   monthly_m4_inter,
   # type = "partitional",
   k = k_range,
@@ -57,87 +60,70 @@ cl_ki <- tsclust(
   centroid = "pam",
   seed = 42,
   trace = TRUE,
-  control = partitional_control(nrep = iters),
+  control = partitional_control(nrep = reps),
   parallel = TRUE
 )
 
-cl_ki_n <- lapply(cl_ki, function(cl)
+# Extract clustering results
+cl_k_reps_k <- lapply(cl_k_reps, function(cl)
   return(cl@k))
-cl_ki_dists <- lapply(cl_ki, function(cl)
+cl_k_reps_dists <- lapply(cl_k_reps, function(cl)
   return(cl@cldist))
-cl_ki_clusters <- lapply(cl_ki, function(cl)
+cl_k_reps_clusters <- lapply(cl_k_reps, function(cl)
   return(cl@cluster))
-remove(cl_ki)
+remove(cl_k_reps)
 gc(full = TRUE)
 
-# Internal clustering metrics, i.e. no ground truths
+#######################################################################
+# Internal clustering metrics
 compute_metrics <- function(x) {
   metrics <-
     c(
-      "ball_hall",
-      "banfeld_raftery",
-      "c_index",
       "calinski_harabasz",
       "davies_bouldin",
-      "det_ratio",
+      "gamma",
+      "gdi42",
       "pbm",
       "point_biserial",
-      "ratkowsky_lance",
-      # "ray_turi",
       "sd_dis",
-      "sd_scat",
-      "silhouette"
+      "silhouette",
+      "wemmert_gancarski"
     )
-  return(intCriteria(cl_ki_dists[[x]], cl_ki_clusters[[x]], metrics))
+  return(intCriteria(cl_k_reps_dists[[x]], cl_k_reps_clusters[[x]], "all"))
 }
-# metrics_k <-
-#   mclapply(
-#     cl_k,
-#     compute_metrics,
-#     mc.preschedule = FALSE,
-#     mc.cores = 2,
-#     affinity.list = rep(c(2, 3), length(cl_k) / 2)
-#   )
+metrics_k_reps <-
+  mclapply(
+    1:length(cl_k_reps_k),
+    compute_metrics,
+    mc.preschedule = FALSE,
+    mc.cores = 2,
+    affinity.list = rep(c(2, 3), length(cl_k_reps_k) / 2)
+  )
+# metrics_k_reps <- lapply(1:length(cl_k_reps_k), compute_metrics)
 
-# Compute metrics for all k's for all iters
-metrics_iters <- lapply(1:length(cl_ki_n), compute_metrics)
-
-int_metrics_df <- bind_rows(metrics_iters)
-int_metrics_df$k <- unlist(cl_ki_n)
+int_metrics_df <- bind_rows(metrics_k_reps)
+int_metrics_df$k <- unlist(cl_k_reps_k)
 int_metrics_df %>%
-  gather(metric, value, -k) ->
-  int_results
+  gather(metric, value, -k) %>%
+  filter(metric %in% metrics) ->
+  int_results_df
 
 #######################################################################
 # Plot clustering metrics
 
-title <-
-  paste0("TS count = ",
-         length(monthly_m4_inter),
-         ", ",
-         desc)
-
 gg <-
-  ggplot(int_results, aes(x = k, y = value)) +
+  ggplot(int_results_df, aes(x = k, y = value)) +
   ggtitle(title) +
   geom_point(size = 0.25, alpha = 0.5) +
   geom_smooth() +
-  # scale_color_viridis(discrete = TRUE) +
-  # geom_vline(xintercept = ncol(targets_df)) +
-  facet_wrap( ~ metric, scales = "free")
+  facet_wrap(~ metric, scales = "free")
 print(gg)
 
 ggsave(
-  paste0(paste0(
-    "nts=",
-    length(monthly_m4_inter),
-    "_",
-    fname,
-    ".png"
-  )),
+  paste0(fname, ".png"),
   dpi = 100,
-  scale = 5,
-  width = 3,
+  scale = 4,
+  width = 2,
   height = 2,
   units = "in"
 )
