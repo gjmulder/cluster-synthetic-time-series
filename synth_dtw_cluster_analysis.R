@@ -187,6 +187,7 @@ gg <-
   ggplot(int_results) +
   ggtitle(title) +
   geom_point(aes(x = k, y = value), size = 0.5) +
+  geom_smooth() +
   geom_vline(xintercept = ncol(targets_df)) +
   facet_wrap(~ metric, scales = "free")
 print(gg)
