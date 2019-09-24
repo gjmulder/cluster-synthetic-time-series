@@ -15,44 +15,58 @@ source("m4_benchmarks_eval.R")
 #######################################################################
 # Config
 
+m4_season <- "Monthly"
 fcast_horiz <- 18
-freq <- 12 #The frequency of the data
+freq <- 12
 
-num_ts <- 1000
+num_ts <- 5000
 ts_len <- 500
 nrep <- 5
-k_range = c(5:8)
+k_range = c(2:19) # c(5:8)
 
 title <-
-  paste0(num_ts,
-         " TS sampled from M4, PAM + L2, ",
-         ts_len,
-         " length, ",
-         nrep,
-         " clustering reps")
+  paste0(
+    num_ts,
+    " TS sampled from M4 deseasonalised ",
+    m4_season,
+    ", ",
+    ts_len,
+    " interpolated length, PAM + L2, ",
+    nrep,
+    " clustering reps"
+  )
 fname <-
-  paste0("nts",
-         num_ts,
-         "_m4_pam_l2_intmet_tslen_fitcl",
-         ts_len,
-         "_nrep",
-         nrep)
+  paste0(
+    "nts",
+    num_ts,
+    "_m4_",
+    tolower(substr(m4_season, 1, 3)),
+    "_tslen",
+    ts_len,
+    "_pam_l2_intmet_nrep",
+    nrep
+  )
+
+#######################################################################
+# Preprocess M4 data
 
 m4_data <-
   sample(Filter(function(ts)
-    ts$period == "Monthly", M4), num_ts)
+    ts$period == m4_season, M4), num_ts)
 # sample(M4, num_ts)
 print(summary(unlist(lapply(m4_data, function(x)
   return(x$n)))))
+
 m4_data_x <-
   lapply(m4_data, function(ts)
     return(ts$x))
 m4_data_x_deseason <-
-  lapply(m4_data_x, deseasonalise, fcast_horiz)
+  lapply(m4_data_x, function(x)
+    return(deseasonalise(x, fcast_horiz)$des_input))
+m4_data_x_inter <-
+  lapply(m4_data_x_deseason, function(ts)
+  return(reinterpolate(ts, ts_len)))
 
-# m4_data_x_inter <-
-#   lapply(m4_data, function(ts)
-#   return(reinterpolate(ts$x, ts_len)))
 m4_data_xx <-
   lapply(m4_data, function(ts)
     return(ts$xx))
@@ -65,11 +79,9 @@ gc(full = TRUE)
 #######################################################################
 # TS clustering
 
-# cl <- interactive_clustering(tsl2)
-
-# Cluster
+# cl <- interactive_clustering(m4_data_x_deseason)
 cl_k_nrep <- tsclust(
-  m4_data_x_deseason,
+  m4_data_x_inter,
   k = k_range,
   distance = "l2",
   centroid = "pam",
@@ -139,7 +151,7 @@ gg <-
   ggtitle(title) +
   geom_point(size = 0.25, alpha = 0.5) +
   geom_smooth() +
-  facet_wrap( ~ metric, scales = "free")
+  facet_wrap(~ metric, scales = "free")
 print(gg)
 
 ggsave(
@@ -152,25 +164,38 @@ ggsave(
 )
 
 # ######################################################################
+# m4_benchmarks <- function(input, fcast_horiz) {
+#   # Estimate the statistical benchmarks for the M4 competition
 #
-# cl_fcasts <- function(input, fh) {
-#   #Used to estimate the statistical benchmarks of the M4 competition
+#   deseason <- deseasonalise(input, fcast_horiz)
 #
-#   res <- deseasonalise(input, fh)
-#   des_input <- res[[1]]
-#   SIout <- res[[2]]
+#   fcast_naive <- naive(input, h = fcast_horiz)$mean
+#   fcast_seasonal_naive <-
+#     seasonal_naive(input, fcast_horiz = fcast_horiz)
+#   fcast_naive2 <-
+#     naive(deseason$des_input, h = fcast_horiz)$mean * deseason$si_out
+#   fcast_ses <-
+#     ses(deseason$des_input, h = fcast_horiz)$mean * deseason$si_out
+#   fcast_holt <-
+#     holt(deseason$des_input, h = fcast_horiz, damped = F)$mean * deseason$si_out
+#   fcast_holt_damped <-
+#     holt(deseason$des_input, h = fcast_horiz, damped = T)$mean * deseason$si_out
+#   fcast_theta_classic <-
+#     theta_classic(input = deseason$des_input, fcast_horiz = fcast_horiz)$mean * deseason$si_out
+#   fcast_combined <- (fcast_ses + fcast_holt + fcast_holt_damped) / 3
 #
-#   f1 <- naive(input, h = fh)$mean #Naive
-#   f2 <- naive_seasonal(input, fh = fh) #Seasonal Naive
-#   f3 <- naive(des_input, h = fh)$mean * SIout #Naive2
-#   f4 <- ses(des_input, h = fh)$mean * SIout #Ses
-#   f5 <- holt(des_input, h = fh, damped = F)$mean * SIout #Holt
-#   f6 <- holt(des_input, h = fh, damped = T)$mean * SIout #Damped
-#   f7 <-
-#     Theta.classic(input = des_input, fh = fh)$mean * SIout #Theta
-#   f8 <- (f4 + f5 + f6) / 3 #Comb
-#
-#   return(list(f1, f2, f3, f4, f5, f6, f7, f8))
+#   return(
+#     list(
+#       fcast_naive = fcast_naive,
+#       fcast_seasonal_naive = fcast_seasonal_naive,
+#       fcast_naive2 = fcast_naive2,
+#       fcast_ses = fcast_ses,
+#       fcast_holt = fcast_holt,
+#       fcast_holt_damped = fcast_holt_damped,
+#       fcast_theta_classic = fcast_theta_classic,
+#       fcast_combined = fcast_combined
+#     )
+#   )
 # }
 #
 # ######################################################################

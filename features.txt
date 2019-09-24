@@ -1,8 +1,0 @@
-> colnames(x)
- [1] "frequency"         "nperiods"          "seasonal_period"  
- [4] "trend"             "spike"             "linearity"        
- [7] "curvature"         "e_acf1"            "e_acf10"          
-[10] "entropy"           "x_acf1"            "x_acf10"          
-[13] "diff1_acf1"        "diff1_acf10"       "diff2_acf1"       
-[16] "diff2_acf10"       "seasonal_strength" "peak"             
-[19] "trough"            "seas_acf1"  
