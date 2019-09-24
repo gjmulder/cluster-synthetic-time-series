@@ -10,7 +10,7 @@
 # library(M4comp2018)
 # set.seed(42)
 
-smape_cal <- function(out_sample, fcast) {
+smape <- function(fcast, out_sample) {
   # Used to estimate sMAPE
   out_sample <- as.numeric(out_sample)
   fcast <- as.numeric(fcast)
@@ -18,19 +18,19 @@ smape_cal <- function(out_sample, fcast) {
   return(smape)
 }
 
-mase_cal <- function(insample, outsample, fcasts) {
+mase <- function(fcast, in_sample, out_sample) {
   # Used to estimate MASE
-  frq <- frequency(insample)
-  fcast_naive_sd <- rep(NA, frq)
-  for (j in (frq + 1):length(insample)) {
-    fcast_naive_sd <- c(fcast_naive_sd, insample[j - frq])
+  freq <- frequency(in_sample)
+  fcast_naive_sd <- rep(NA, freq)
+  for (j in (freq + 1):length(in_sample)) {
+    fcast_naive_sd <- c(fcast_naive_sd, in_sample[j - freq])
   }
-  masep <- mean(abs(insample - fcast_naive_sd), na.rm = TRUE)
+  masep <- mean(abs(in_sample - fcast_naive_sd), na.rm = TRUE)
 
-  outsample <-
-    as.numeric(outsample)
-  fcasts <- as.numeric(fcasts)
-  mase <- (abs(outsample - fcasts)) / masep
+  out_sample <-
+    as.numeric(out_sample)
+  fcast <- as.numeric(fcast)
+  mase <- (abs(out_sample - fcast)) / masep
   return(mase)
 }
 
@@ -119,14 +119,14 @@ deseasonalise <- function(input, fcast_horiz) {
   }
   if (is_seasonal) {
     dec <- decompose(input, type = "multiplicative")
-    des_input <- input / dec$seasonal
+    output <- input / dec$seasonal
     si_out <-
       head(rep(dec$seasonal[(length(dec$seasonal) - freq + 1):length(dec$seasonal)], fcast_horiz), fcast_horiz)
   } else {
-    des_input <- input
+    output <- input
     si_out <- rep(1, fcast_horiz)
   }
-  return(list("des_input" = des_input, "si_out" = si_out))
+  return(list("output" = output, "si_out" = si_out))
 }
 
 m4_benchmarks <- function(input, fcast_horiz) {
@@ -138,15 +138,15 @@ m4_benchmarks <- function(input, fcast_horiz) {
   fcast_seasonal_naive <-
     seasonal_naive(input, fcast_horiz = fcast_horiz)
   fcast_naive2 <-
-    naive(deseason$des_input, h = fcast_horiz)$mean * deseason$si_out
+    naive(deseason$output, h = fcast_horiz)$mean * deseason$si_out
   fcast_ses <-
-    ses(deseason$des_input, h = fcast_horiz)$mean * deseason$si_out
+    ses(deseason$output, h = fcast_horiz)$mean * deseason$si_out
   fcast_holt <-
-    holt(deseason$des_input, h = fcast_horiz, damped = F)$mean * deseason$si_out
+    holt(deseason$output, h = fcast_horiz, damped = F)$mean * deseason$si_out
   fcast_holt_damped <-
-    holt(deseason$des_input, h = fcast_horiz, damped = T)$mean * deseason$si_out
+    holt(deseason$output, h = fcast_horiz, damped = T)$mean * deseason$si_out
   fcast_theta_classic <-
-    theta_classic(input = deseason$des_input, fcast_horiz = fcast_horiz)$mean * deseason$si_out
+    theta_classic(input = deseason$output, fcast_horiz = fcast_horiz)$mean * deseason$si_out
   fcast_combined <- (fcast_ses + fcast_holt + fcast_holt_damped) / 3
 
   return(
