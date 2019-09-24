@@ -1,0 +1,34 @@
+[1] "########### sMAPE ###############"
+[1] "Naive 15.256"
+[1] "sNaive 15.988"
+[1] "Naive2 14.427"
+[1] "SES 13.618"
+[1] "Holt 14.828"
+[1] "Damped 13.473"
+[1] "Theta 13.003"
+[1] "Com 13.434"
+
+[1] "########### MASE ################"
+[1] "Naive 1.205"
+[1] "sNaive 1.26"
+[1] "Naive2 1.063"
+[1] "SES 1.02"
+[1] "Holt 1.01"
+[1] "Damped 0.972"
+[1] "Theta 0.97"
+[1] "Com 0.966"
+
+[1] "########### OWA ################"
+[1] "Naive 1.095"
+[1] "sNaive 1.146"
+[1] "Naive2 1"
+[1] "SES 0.951"
+[1] "Holt 0.989"
+[1] "Damped 0.924"
+[1] "Theta 0.907"
+[1] "Com 0.92"
+
+      fcast_naive fcast_seasonal_naive fcast_naive2 fcast_ses fcast_holt fcast_holt_damped fcast_theta_classic fcast_combined
+smape      15.256               15.988       14.427    13.618     14.828            13.473              13.003         13.434
+mase        1.205                1.260        1.063     1.020      1.010             0.972               0.970          0.966
+OWA         1.095                1.146        1.000     0.951      0.989             0.924               0.907          0.920
