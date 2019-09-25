@@ -50,27 +50,37 @@ fname <-
 #######################################################################
 # Preprocess M4 data
 
+# Filter(function(ts)
+#   ts$period == m4_season, M4)
 m4_data <-
-  # Filter(function(ts)
-  #   ts$period == m4_season, M4)
-sample(Filter(function(ts)
-  ts$period == m4_season, M4), num_ts)
+  sample(Filter(function(ts)
+    ts$period == m4_season, M4), num_ts)
 print(summary(unlist(lapply(m4_data, function(x)
   return(x$n)))))
 
+# # Post-M4 Competition data
+# m4_data_x <-
+#   lapply(m4_data, function(ts)
+#     return(ts$x))
+# m4_data_xx <-
+#   lapply(m4_data, function(ts)
+#     return(ts$xx))
+
+# M4 Competition data
 m4_data_x <-
   lapply(m4_data, function(ts)
-    return(ts$x))
+    return(subset(ts$x, end=length(ts$x)-fcast_horiz)))
+m4_data_xx <-
+  lapply(m4_data, function(ts)
+    return(subset(ts$x, start=length(ts$x)-fcast_horiz+1)))
+
 m4_data_x_deseason <-
   lapply(m4_data_x, function(x)
     return(deseasonalise(x, fcast_horiz)))
-# m4_data_x_inter <-
-#   lapply(m4_data_x_deseason, function(ts)
-#     return(reinterpolate(ts$output, ts_len)))
+m4_data_x_inter <-
+  lapply(m4_data_x_deseason, function(ts)
+    return(reinterpolate(ts$output, ts_len)))
 
-m4_data_xx <-
-  lapply(m4_data, function(ts)
-    return(ts$xx))
 # m4_data_type <-
 #   as.integer(unlist(lapply(m4_data, function(ts)
 #     return(ts$type))))
@@ -112,43 +122,44 @@ multi_fit_ts <- function(idx) {
     )
   )
 }
+
 fcasts_m4 <- lapply(1:length(m4_data_x), multi_fit_ts)
 
 #######################################################################
 # Compute sMAPE, MASE and OWA for all TS forecasts
 
-fcast_errs <- function(idx) {
-  mean_smapes <-
+fcast_errs <- function(idx, fcasts_m4) {
+  mean_smape <-
     lapply(fcasts_m4[[idx]], function(fcast)
       return(mean(smape(
         fcast, m4_data_xx[[idx]]
       ))))
-  mean_mases <-
+  mean_mase <-
     lapply(fcasts_m4[[idx]], function(fcast)
       return(mean(mase(
         fcast, m4_data_x[[idx]], m4_data_xx[[idx]]
       ))))
-  return(list(mean_smapes = mean_smapes, mean_mases = mean_mases))
+  mean_errs <- bind_rows(mean_smape, mean_mase)
+  return(mean_errs)
 }
-fcast_errs_m4 <- lapply(1:length(fcasts_m4), fcast_errs)
 
-mean_errs <- function(fcast_name) {
-  return(rbind(mean(unlist(
-    lapply(1:length(fcasts_m4), function(idx)
-      return(fcast_errs_m4[[idx]]$mean_smapes[[fcast_name]]))
-  )),
-  mean(unlist(
-    lapply(1:length(fcasts_m4), function(idx)
-      return(fcast_errs_m4[[idx]]$mean_mases[[fcast_name]]))
-  ))))
+fcast_errs_m4 <- lapply(1:length(fcasts_m4), fcast_errs, fcasts_m4)
+
+mean_errs <- function(fcast_name, fcast_errs) {
+  smapes <- unlist(lapply(1:length(fcast_errs), function(idx)
+    return(fcast_errs[[idx]][[fcast_name]][1])))
+  mases <- unlist(lapply(1:length(fcast_errs), function(idx)
+    return(fcast_errs[[idx]][[fcast_name]][2])))
+  return(c(mean(smapes), mean(mases)))
 }
+
 fcast_names <- names(fcasts_m4[[1]])
-mean_errs_m4_df <- as.data.frame(lapply(fcast_names, mean_errs))
+mean_errs_m4_df <- as.data.frame(lapply(fcast_names, mean_errs, fcast_errs_m4))
 colnames(mean_errs_m4_df) <- fcast_names
 mean_errs_m4_df <-
   rbind(mean_errs_m4_df,
         colMeans(mean_errs_m4_df / mean_errs_m4_df$fcast_naive2))
-rownames(mean_errs_m4_df) <- c("smape", "mase", "OWA")
+rownames(mean_errs_m4_df) <- c("sMAPE", "MASE", "OWA")
 
 #######################################################################
 # TS clustering
@@ -214,25 +225,25 @@ metrics_df %>%
   gather(metric, value, -k) ->
   results_df
 
-#######################################################################
-# Plot clustering metrics
-
-gg <-
-  ggplot(results_df, aes(x = k, y = value)) +
-  ggtitle(title) +
-  geom_point(size = 0.25, alpha = 0.5) +
-  geom_smooth() +
-  facet_wrap(~ metric, scales = "free")
-print(gg)
-
-ggsave(
-  paste0(fname, ".png"),
-  dpi = 100,
-  scale = 5,
-  width = 2,
-  height = 2,
-  units = "in"
-)
+# #######################################################################
+# # Plot clustering metrics
+#
+# gg <-
+#   ggplot(results_df, aes(x = k, y = value)) +
+#   ggtitle(title) +
+#   geom_point(size = 0.25, alpha = 0.5) +
+#   geom_smooth() +
+#   facet_wrap( ~ metric, scales = "free")
+# print(gg)
+#
+# ggsave(
+#   paste0(fname, ".png"),
+#   dpi = 100,
+#   scale = 5,
+#   width = 2,
+#   height = 2,
+#   units = "in"
+# )
 
 #######################################################################
 # Extract best clusters for each k in k_range
@@ -254,20 +265,18 @@ metrics_df %>%
 
 ######################################################################
 
-fit_cluster_ts <- function(cl_number, cl_assignment) {
-  cl_idxes <- match(cl_assignment, cl_number)
-  print(paste0("Cluster #", cl_number, " has length: ", sum(cl_idxes), na.rm = TRUE))
-
-  fcast_cl <- lapply(cl_idxes, fit_ts)
+cl_select_fcast <- function(cl_n, cl_assignment) {
+  cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
+  print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
+  cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
+  me <- mean_errs("fcast_naive", fcast_errs_m4[cl_n_idx])
 }
 
 get_clusters <- function(row_idx) {
   k <- cl_k_nrep_k[[row_idx]]
   cl_assignment <- cl_k_nrep_clusters[[row_idx]]
-  print(paste0("Number of TS per cluster for k=", k))
-  print(table(cl_assignment))
-
-  res <- lapply(1:k, fit_clusters, cl_assignment)
+  print(paste0("k=", k))
+  res <- lapply(1:k, cl_select_fcast, cl_assignment)
 }
 
 res <- lapply(idx_df$row, get_clusters)
