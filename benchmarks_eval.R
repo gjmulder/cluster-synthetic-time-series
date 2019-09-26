@@ -1,14 +1,8 @@
-#
 # Code originally from: https://raw.githubusercontent.com/M4Competition/M4-methods/master/Benchmarks%20and%20Evaluation.R
 # Modifications and clean up by Gary Mulder mulder.g@unic.ac.cy
 # Version 0.1 - 2019-09-24
-#
 
-# This code can be used to reproduce the fcast of the M4 Competition STATISTICAL m4_benchmarks and evaluate their accuracy
-
-# library(forecast) #Requires v8.2
-# library(M4comp2018)
-# set.seed(42)
+library(forecast) #Requires v8.2
 
 smape <- function(fcast, out_sample) {
   # Used to estimate sMAPE
@@ -129,36 +123,36 @@ deseasonalise <- function(input, fcast_horiz) {
   return(list("output" = output, "si_out" = si_out))
 }
 
-m4_benchmarks <- function(input, fcast_horiz) {
-  # Estimate the statistical benchmarks for the M4 competition
-
-  deseason <- deseasonalise(input, fcast_horiz)
-
-  fcast_naive <- naive(input, h = fcast_horiz)$mean
-  fcast_seasonal_naive <-
-    seasonal_naive(input, fcast_horiz = fcast_horiz)
-  fcast_naive2 <-
-    naive(deseason$output, h = fcast_horiz)$mean * deseason$si_out
-  fcast_ses <-
-    ses(deseason$output, h = fcast_horiz)$mean * deseason$si_out
-  fcast_holt <-
-    holt(deseason$output, h = fcast_horiz, damped = F)$mean * deseason$si_out
-  fcast_holt_damped <-
-    holt(deseason$output, h = fcast_horiz, damped = T)$mean * deseason$si_out
-  fcast_theta_classic <-
-    theta_classic(input = deseason$output, fcast_horiz = fcast_horiz)$mean * deseason$si_out
-  fcast_combined <- (fcast_ses + fcast_holt + fcast_holt_damped) / 3
-
-  return(
-    list(
-      fcast_naive = fcast_naive,
-      fcast_seasonal_naive = fcast_seasonal_naive,
-      fcast_naive2 = fcast_naive2,
-      fcast_ses = fcast_ses,
-      fcast_holt = fcast_holt,
-      fcast_holt_damped = fcast_holt_damped,
-      fcast_theta_classic = fcast_theta_classic,
-      fcast_combined = fcast_combined
-    )
-  )
-}
+# m4_benchmarks <- function(input, fcast_horiz) {
+#   # Estimate the statistical benchmarks for the M4 competition
+#
+#   deseason <- deseasonalise(input, fcast_horiz)
+#
+#   fcast_naive <- naive(input, h = fcast_horiz)$mean
+#   fcast_seasonal_naive <-
+#     seasonal_naive(input, fcast_horiz = fcast_horiz)
+#   fcast_naive2 <-
+#     naive(deseason$output, h = fcast_horiz)$mean * deseason$si_out
+#   fcast_ses <-
+#     ses(deseason$output, h = fcast_horiz)$mean * deseason$si_out
+#   fcast_holt <-
+#     holt(deseason$output, h = fcast_horiz, damped = F)$mean * deseason$si_out
+#   fcast_holt_damped <-
+#     holt(deseason$output, h = fcast_horiz, damped = T)$mean * deseason$si_out
+#   fcast_theta_classic <-
+#     theta_classic(input = deseason$output, fcast_horiz = fcast_horiz)$mean * deseason$si_out
+#   fcast_combined <- (fcast_ses + fcast_holt + fcast_holt_damped) / 3
+#
+#   return(
+#     list(
+#       fcast_naive = fcast_naive,
+#       fcast_seasonal_naive = fcast_seasonal_naive,
+#       fcast_naive2 = fcast_naive2,
+#       fcast_ses = fcast_ses,
+#       fcast_holt = fcast_holt,
+#       fcast_holt_damped = fcast_holt_damped,
+#       fcast_theta_classic = fcast_theta_classic,
+#       fcast_combined = fcast_combined
+#     )
+#   )
+# }

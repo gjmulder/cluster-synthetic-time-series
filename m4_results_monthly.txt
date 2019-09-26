@@ -29,13 +29,20 @@
 [1] "Com 0.92"
 
       fcast_naive fcast_seasonal_naive fcast_naive2 fcast_ses fcast_holt fcast_holt_damped fcast_theta_classic fcast_combined
-smape      15.256               15.988       14.427    13.618     14.828            13.473              13.003         13.434
-mase        1.205                1.260        1.063     1.020      1.010             0.972               0.970          0.966
+sMAPE      15.256               15.988       14.427    13.618     14.828            13.473              13.003         13.434
+MASE        1.205                1.260        1.063     1.020      1.010             0.972               0.970          0.966
 OWA         1.095                1.146        1.000     0.951      0.989             0.924               0.907          0.920
 
-1000 TS:
+####################################################################################################################################
+10000 TS, M4 Estimate:
 
       fcast_naive fcast_seasonal_naive fcast_naive2 fcast_ses fcast_holt fcast_holt_damped fcast_theta_classic fcast_combined
-smape      16.041               16.511       15.375    14.410     15.351            14.283              13.704         14.161
-mase        1.150                1.206        1.054     1.004      1.011             0.966               0.957          0.962
-OWA         1.067                1.109        1.000     0.945      0.979             0.923               0.900          0.917
+sMAPE      13.858               15.190       13.049    12.388     15.787            12.735              13.246         12.975
+MASE        1.172                1.236        1.029     0.987      1.036             0.965               0.971          0.960
+OWA         1.101                1.183        1.000     0.954      1.109             0.957               0.979          0.964
+
+10000 TS, M4 Actual:
+      fcast_naive fcast_seasonal_naive fcast_naive2 fcast_ses fcast_holt fcast_holt_damped fcast_theta_classic fcast_combined
+sMAPE      15.043               15.758       21.198    20.649     22.310            20.547              20.471         20.596
+MASE        1.197                1.260        1.892     1.862      1.816             1.813               1.811          1.808
+OWA         0.671                0.705        1.000     0.979      1.006             0.964               0.962          0.964
