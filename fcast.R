@@ -22,14 +22,14 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
 
   return(
     list(
-      fcast_naive = fcast_naive,
-      fcast_seasonal_naive = fcast_seasonal_naive,
-      fcast_naive2 = fcast_naive2,
-      fcast_ses = fcast_ses,
-      fcast_holt = fcast_holt,
-      fcast_holt_damped = fcast_holt_damped,
-      fcast_theta_classic = fcast_theta_classic,
-      fcast_combined = (fcast_ses + fcast_holt + fcast_holt_damped) / 3
+      naive          = fcast_naive,
+      seasonal_naive = fcast_seasonal_naive,
+      naive2         = fcast_naive2,
+      ses            = fcast_ses,
+      holt           = fcast_holt,
+      holt_damped    = fcast_holt_damped,
+      theta_classic  = fcast_theta_classic,
+      combined       = (fcast_ses + fcast_holt + fcast_holt_damped) / 3
     )
   )
 }
@@ -40,9 +40,7 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
 compute_fcast_errs <- function(idx, fcasts_x, data_x, data_xx) {
   mean_smape <-
     lapply(fcasts_x[[idx]], function(fcast)
-      return(mean(smape(
-        fcast, data_xx[[idx]]
-      ))))
+      return(mean(smape(fcast, data_xx[[idx]]))))
   mean_mase <-
     lapply(fcasts_x[[idx]], function(fcast)
       return(mean(mase(

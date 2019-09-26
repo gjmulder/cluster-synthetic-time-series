@@ -2,6 +2,7 @@
 library(tidyverse)
 library(M4comp2018)
 library(dtwclust)
+library(parallel)
 
 set.seed(42)
 source("fcast.R")
@@ -14,10 +15,11 @@ m4_season <- "Monthly"
 fcast_horiz <- 18
 freq <- 12
 
-num_ts <- 10000
+num_ts <- 20000
 ts_len <- 480
 nrep <- 11
-k_range = c(4:8)
+k_range <- c(3:8)
+err_names <- c("sMAPE", "MASE", "OWA")
 
 title <-
   paste0(
@@ -58,10 +60,12 @@ print(summary(unlist(lapply(m4_data, function(x)
 # M4 Competition only data
 m4_data_x <-
   lapply(m4_data, function(ts)
-    return(subset(ts$x, end=length(ts$x)-fcast_horiz)))
+    return(subset(ts$x, end = length(ts$x) - fcast_horiz)))
 m4_data_xx <-
   lapply(m4_data, function(ts)
-    return(subset(ts$x, start=(length(ts$x) - fcast_horiz + 1))))
+    return(subset(ts$x, start = (
+      length(ts$x) - fcast_horiz + 1
+    ))))
 
 # Deseasonalise and linearly interpolate to ts_len
 m4_data_x_deseason <-
@@ -105,14 +109,18 @@ fcast_names <- names(fcasts[[1]])
 # Compute sMAPE, MASE, and OWA
 
 fcast_errs <-
-  lapply(1:length(fcasts), compute_fcast_errs, fcasts, m4_data_x, m4_data_xx)
+  lapply(1:length(fcasts),
+         compute_fcast_errs,
+         fcasts,
+         m4_data_x,
+         m4_data_xx)
 mean_errs_df <-
   as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs))
 colnames(mean_errs_df) <- fcast_names
 mean_errs_df <-
   rbind(mean_errs_df,
-        colMeans(mean_errs_df / mean_errs_df$fcast_naive2))
-rownames(mean_errs_df) <- c("sMAPE", "MASE", "OWA")
+        colMeans(mean_errs_df / mean_errs_df$naive2))
+rownames(mean_errs_df) <- err_names
 print(round(mean_errs_df, 3))
 
 ###########################################################################
@@ -129,60 +137,86 @@ fcasts_post <-
 # Post M4 compute sMAPE, MASE, and OWA
 
 fcast_post_errs <-
-  lapply(1:length(fcasts_post), compute_fcast_errs, fcasts_post, m4_data_post_x, m4_data_post_xx)
+  lapply(
+    1:length(fcasts_post),
+    compute_fcast_errs,
+    fcasts_post,
+    m4_data_post_x,
+    m4_data_post_xx
+  )
 mean_errs_post_df <-
   as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_post_errs))
 colnames(mean_errs_post_df) <- fcast_names
 mean_errs_post_df <-
   rbind(mean_errs_post_df,
-        colMeans(mean_errs_post_df / mean_errs_post_df$fcast_naive2))
-rownames(mean_errs_post_df) <- c("sMAPE", "MASE", "OWA")
+        colMeans(mean_errs_post_df / mean_errs_post_df$naive2))
+rownames(mean_errs_post_df) <- err_names
 print(round(mean_errs_post_df, 3))
 
 ###########################################################################
 # Cluster M4 deseasonalised and interpolated TS
 
 print("Clustering...")
-cl <- cluster_ts(m4_data_x_inter)
+cl <- cluster_ts(m4_data_x_inter, k_range, nrep)
 cl_metrics_df <- compute_cl_metrics(cl)
 
 ###########################################################################
 # Select the best forecast type per M4 TS cluster
 
-cl_select_best_fcast <- function(cl_n, cl_assignment, fcast_names, fcast_post_errs) {
-  cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
-  print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
-  cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
+cl_select_best_fcast <-
+  function(cl_n,
+           cl_assignment,
+           fcast_names,
+           fcast_post_errs) {
+    cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
+    print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
+    cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
 
-  # Compute mean errors for cl_n
-  cl_fcast_errs_df <-
-    as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs[cl_n_idx]))
-  colnames(cl_fcast_errs_df) <- fcast_names
-  cl_fcast_errs_df <-
-    rbind(cl_fcast_errs_df,
-          colMeans(cl_fcast_errs_df / cl_fcast_errs_df$fcast_naive2))
-  rownames(cl_fcast_errs_df) <- c("sMAPE", "MASE", "OWA")
-  # print(cl_fcast_errs_df)
+    # Compute mean errors for cl_n
+    cl_fcast_errs_df <-
+      as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs[cl_n_idx]))
+    colnames(cl_fcast_errs_df) <- fcast_names
+    cl_fcast_errs_df <-
+      rbind(cl_fcast_errs_df,
+            colMeans(cl_fcast_errs_df / cl_fcast_errs_df$naive2))
+    rownames(cl_fcast_errs_df) <- err_names
+    # print(cl_fcast_errs_df)
 
-  # Find best forecast method using OWA for cl_n
-  best_cl_n <- names(which.min(cl_fcast_errs_df["OWA", ]))
+    # Find best forecast method using OWA for cl_n
+    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
 
-  # Return the Out Of Sample errors
-  best_cl_err <- bind_cols(lapply(fcast_post_errs[cl_n_idx], function(fcast_post_err, best_err) return(fcast_post_err[best_err]), best_cl_n))
-  return(best_cl_err)
-}
+    # Return the out of sample errors
+    best_cl_err <-
+      bind_cols(lapply(fcast_post_errs[cl_n_idx], function(fcast_post_err, best_err)
+        return(fcast_post_err[best_err]), best_cl_n))
+    return(best_cl_err)
+  }
 
-get_clusters <- function(k_idx, cl, fcast_names, fcast_post_errs, mean_errs_post_df) {
-  k <- cl$k_nrep_k[[k_idx]]
-  cl_assignment <- cl$k_nrep_clusters[[k_idx]]
-  print("")
-  print(paste0("k=", k))
-  cl_best <- rowMeans(bind_cols(lapply(1:k, cl_select_best_fcast, cl_assignment, fcast_names, fcast_post_errs)))
-  cl_best_v <- c(cl_best, mean(cl_best / mean_errs_post_df$fcast_naive2[1:2]))
-  names(cl_best_v) <- c("sMAPE", "MASE", "OWA")
-  print(cl_best_v)
-  return(cl_best_v)
-}
+get_clusters <-
+  function(k_idx,
+           cl,
+           fcast_names,
+           fcast_post_errs,
+           naive2_errs_post) {
+    k <- cl$k_nrep_k[[k_idx]]
+    cl_assignment <- cl$k_nrep_clusters[[k_idx]]
+    print("")
+    print(paste0("k=", k))
+    cl_best <-
+      rowMeans(bind_cols(
+        lapply(
+          1:k,
+          cl_select_best_fcast,
+          cl_assignment,
+          fcast_names,
+          fcast_post_errs
+        )
+      ))
+    cl_best_v <- c(cl_best, mean(cl_best / naive2_errs_post))
+    names(cl_best_v) <- err_names
+    # print(cl_best_v)
+    return(cl_best_v)
+  }
 
 print("Finding best clustering based on OWA:")
 # Find median metric for each k
@@ -200,5 +234,13 @@ cl_metrics_df %>%
   summarise(row = max(row_id)) ->
   idx_df
 
-cl_best_k <- lapply(idx_df$row, get_clusters, cl, fcast_names, fcast_post_errs, mean_errs_post_df)
-names(cl_best_k) <- idx_df$k
+cl_best_ks <-
+  lapply(
+    idx_df$row,
+    get_clusters,
+    cl,
+    fcast_names,
+    fcast_post_errs,
+    mean_errs_post_df$naive2[1:2]
+  )
+names(cl_best_ks) <- idx_df$k

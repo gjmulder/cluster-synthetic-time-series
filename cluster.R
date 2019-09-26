@@ -1,13 +1,13 @@
 library(dtwclust)
 library(clusterCrit)
 library(ggplot2)
-# library(parallel)
+library(parallel)
 
 #######################################################################
 # TS clustering
 
 # cl <- interactive_clustering(m4_data_x_deseason)
-cluster_ts <- function(data_x) {
+cluster_ts <- function(data_x, k_range, nrep) {
   cl_k_nrep <- tsclust(
     data_x,
     k = k_range,
@@ -64,16 +64,16 @@ compute_cl_metrics <-
     #   return(extCriteria(cl$k_nrep_clusters[[x]], m4_data_type, metrics))
     # }
 
-    # metrics_k_nrep <-
-    #   mclapply(
-    #     1:length(cl$k_nrep_k),
-    #     compute_int_metrics,
-    #     mc.preschedule = FALSE,
-    #     mc.cores = 2,
-    #     affinity.list = rep(c(2, 3), length(cl$k_nrep_k) / 2)
-    #   )
     metrics_k_nrep <-
-      lapply(1:length(cl$k_nrep_k), compute_int_metrics)
+      mclapply(
+        1:length(cl$k_nrep_k),
+        compute_int_metrics,
+        mc.preschedule = FALSE,
+        mc.cores = 2,
+        affinity.list = rep(c(2, 3), length(cl$k_nrep_k) / 2)
+      )
+    # metrics_k_nrep <-
+    #   lapply(1:length(cl$k_nrep_k), compute_int_metrics)
 
     metrics_df <- bind_rows(metrics_k_nrep)
     metrics_df$k <- unlist(cl$k_nrep_k)
@@ -91,7 +91,7 @@ plot_metrics <- function(metrics_df, title, fname) {
     ggtitle(title) +
     geom_point(size = 0.25, alpha = 0.5) +
     geom_smooth() +
-    facet_wrap( ~ metric, scales = "free")
+    facet_wrap(~ metric, scales = "free")
   print(gg)
 
   ggsave(
