@@ -49,13 +49,13 @@ cluster_ts <- function(data_x, k_range, nrep) {
 compute_cl_metrics <-
   function(cl) {
     compute_int_metrics <- function(x) {
-      metrics <-
-        c("calinski_harabasz",
-          "gamma",
-          "gdi42",
-          "pbm",
-          "point_biserial",
-          "silhouette")
+      metrics <- c("pbm")
+        # c("calinski_harabasz",
+        #   "gamma",
+        #   "gdi42",
+        #   "pbm",
+        #   "point_biserial",
+        #   "silhouette")
       return(intCriteria(cl$k_nrep_dists[[x]], cl$k_nrep_clusters[[x]], metrics))
     }
 
