@@ -3,11 +3,6 @@
 library(forecast) #Requires v8.2
 
 #################################################################################
-#In this example let us produce forecasts for 100 randomly generated timeseries
-fh <- 18 #The forecasting horizon examined
-frq <- 12 #The frequency of the data
-
-#################################################################################
 
 smape_cal <- function(outsample, forecasts) {
   #Used to estimate sMAPE
@@ -142,10 +137,15 @@ Benchmarks <- function(input, fh) {
   return(list(f1, f2, f3, f4, f5, f6, f7, f8))
 }
 
+#################################################################################
+#In this example let us produce forecasts for 100 randomly generated timeseries
+fh <- 8 #The forecasting horizon examined
+frq <- 4 #The frequency of the data
+
 library(M4comp2018)
 m4_data <-
   Filter(function(ts)
-    ts$period == "Monthly", M4)
+    ts$period == "Quarterly", M4)
 # sample(M4, num_ts)
 print(summary(unlist(lapply(m4_data, function(x)
   return(x$n)))))

@@ -64,16 +64,16 @@ compute_cl_metrics <-
     #   return(extCriteria(cl$k_nrep_clusters[[x]], m4_data_type, metrics))
     # }
 
-    metrics_k_nrep <-
-      mclapply(
-        1:length(cl$k_nrep_k),
-        compute_int_metrics,
-        mc.preschedule = FALSE,
-        mc.cores = 2,
-        affinity.list = rep(c(2, 3), length(cl$k_nrep_k) / 2)
-      )
     # metrics_k_nrep <-
-    #   lapply(1:length(cl$k_nrep_k), compute_int_metrics)
+    #   mclapply(
+    #     1:length(cl$k_nrep_k),
+    #     compute_int_metrics,
+    #     mc.preschedule = FALSE,
+    #     mc.cores = 2,
+    #     affinity.list = rep(c(2, 3), length(cl$k_nrep_k) / 2)
+    #   )
+    metrics_k_nrep <-
+      lapply(1:length(cl$k_nrep_k), compute_int_metrics)
 
     metrics_df <- bind_rows(metrics_k_nrep)
     metrics_df$k <- unlist(cl$k_nrep_k)

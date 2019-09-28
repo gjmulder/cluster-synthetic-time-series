@@ -14,9 +14,15 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
          h = fcast_horiz,
          damped = FALSE)$mean * data_x_deseason[[idx]]$si_out
   fcast_holt_damped <-
-    holt(data_x_deseason[[idx]]$output,
-         h = fcast_horiz,
-         damped = TRUE)$mean * data_x_deseason[[idx]]$si_out
+    tryCatch({
+      holt(data_x_deseason[[idx]]$output,
+           h = fcast_horiz,
+           damped = TRUE)$mean * data_x_deseason[[idx]]$si_out
+    }, error = function(err) {
+      print(err)
+      print(idx)
+      return(fcast_holt)
+    })
   fcast_theta_classic <-
     theta_classic(input = data_x_deseason[[idx]]$output, fcast_horiz = fcast_horiz)$mean * data_x_deseason[[idx]]$si_out
 

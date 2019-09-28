@@ -20,6 +20,10 @@ mase <- function(fcast, in_sample, out_sample) {
     fcast_naive_sd <- c(fcast_naive_sd, in_sample[j - freq])
   }
   masep <- mean(abs(in_sample - fcast_naive_sd), na.rm = TRUE)
+  if (masep == 0) {
+    print("masep == 0")
+    return(100.0)
+  }
 
   out_sample <-
     as.numeric(out_sample)
