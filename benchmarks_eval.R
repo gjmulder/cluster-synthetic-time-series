@@ -21,8 +21,9 @@ mase <- function(fcast, in_sample, out_sample) {
   }
   masep <- mean(abs(in_sample - fcast_naive_sd), na.rm = TRUE)
   if (masep == 0) {
-    print("masep == 0")
-    return(100.0)
+    print("masep == 0, setting masep = 1e-6")
+    browser()
+    return(1e-6)
   }
 
   out_sample <-
