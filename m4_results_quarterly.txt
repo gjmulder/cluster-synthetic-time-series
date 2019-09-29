@@ -68,9 +68,7 @@ OWA    1.066          1.153  1.000  0.97  0.935       0.893         0.917    0.8
 [1] "Cluster #8 has size: 2876"
 [1] "combined"
 
-> cl_best_ks_df[6,]
-# A tibble: 1 x 4
-    sMAPE   MASE   OWA     k
-    <dbl>  <dbl> <dbl> <int>
-1  10.200  1.190 0.896     8
+> round(cl_best_ks_df[6,], 3)
+   sMAPE  MASE   OWA k
+8 10.195 1.187 0.896 8
 

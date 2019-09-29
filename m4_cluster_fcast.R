@@ -25,8 +25,8 @@
 #
 # title <-
 #   paste0(
-#     num_ts,
-#     " TS sampled from M4 deseasonalised ",
+#   #   # num_ts,
+#   #   # " TS sampled from M4 deseasonalised ",
 #     m4_season,
 #     ", ",
 #     ts_len,
@@ -34,7 +34,7 @@
 #     min(k_range),
 #     " to k=",
 #     max(k_range),
-# ", ",
+#     ", ",
 #     nrep,
 #     " clustering reps:"
 #   )
@@ -261,22 +261,27 @@ names(cl_best_ks) <- idx_df$k
 cl_best_ks %>%
   bind_rows %>%
   t %>%
-  as_tibble(.name_repair = "minimal") ->
+  as.data.frame ->
   cl_best_ks_df
 cl_best_ks_df$k <- idx_df$k
 colnames(cl_best_ks_df) <- c(err_names, "k")
+print("Best OWA clustered result:")
+print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA),], 3))
 
 cl_best_ks_df %>%
-  gather(error, value, -k) ->
+  gather(metric, error, -k) ->
   results_df
 
 benchmark_best_df <-
-  tibble(error = err_names,
-         value = unlist(lapply(err_names, function(err) return(min(mean_errs_post_df[err,])))))
+  data.frame(metric = err_names,
+             error = unlist(lapply(err_names, function(err)
+               return(
+                 min(mean_errs_post_df[err,])
+               ))))
 gg <-
-  ggplot(results_df, aes(x = k, y = value)) +
+  ggplot(results_df, aes(x = k, y = error)) +
   ggtitle(title) +
   geom_line() +
-  facet_wrap(~ error, scales = "free_y") +
-  geom_hline(data = benchmark_best_df, aes(yintercept = value), colour = "red")
+  facet_wrap(~ metric, scales = "free_y") +
+  geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
 print(gg)
