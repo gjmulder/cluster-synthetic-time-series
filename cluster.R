@@ -28,7 +28,7 @@ cluster_ts <- function(data_x, k_range, nrep) {
     return(cl@cluster))
 
   remove(cl_k_nrep)
-  gc(full = TRUE)
+  gc(verbose = TRUE)
 
   # save(cl_k_nrep_k,
   #      cl_k_nrep_dists,
