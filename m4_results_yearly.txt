@@ -1,0 +1,30 @@
+[1] "23000 TS from M4 Yearly, interpolated to length 480, PAM + L2, clustering from k=3 to k=20, 11 clustering reps:"
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+    22.1   1335.1   2610.0   3689.7   5320.0 115642.0 
+[1] "M4 Competition estimates:"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+[1] "masep == 0, setting masep = 1e-6"
+       naive seasonal_naive naive2    ses   holt holt_damped theta_classic      combined
+sMAPE 19.252         19.252 19.252 19.393 16.023      15.602        16.985        15.929
+MASE   4.723          4.723  4.723  4.741  3.386       3.445         4.012         3.614
+OWA    1.000          1.000  1.000  1.006  0.775       0.770         0.866         0.796
+[1] "M4 Competition benchmark results:"
+       naive seasonal_naive naive2    ses   holt holt_damped theta_classic      combined
+sMAPE 16.342         16.342 16.342 16.398 16.535      15.163        14.603        14.874
+MASE   3.974          3.974  3.974  3.981  3.576       3.372         3.382         3.282
+OWA    1.000          1.000  1.000  1.003  0.956       0.888         0.872         0.868
+[1] "Clustering from k=3 to k=20, for 11 reps"
