@@ -10,9 +10,19 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
   fcast_ses <-
     ses(data_x_deseason[[idx]]$output, h = fcast_horiz)$mean * data_x_deseason[[idx]]$si_out
   fcast_holt <-
-    holt(data_x_deseason[[idx]]$output,
-         h = fcast_horiz,
-         damped = FALSE)$mean * data_x_deseason[[idx]]$si_out
+    tryCatch({
+      holt(data_x_deseason[[idx]]$output,
+           h = fcast_horiz,
+           damped = FALSE)$mean * data_x_deseason[[idx]]$si_out
+    }, error = function(err) {
+      print(err)
+      print(paste0(
+        "..while generating Holt undamped for TS with index: ",
+        idx,
+        ". Using naive2 instead."
+      ))
+      return(fcast_naive2)
+    })
   fcast_holt_damped <-
     tryCatch({
       holt(data_x_deseason[[idx]]$output,
@@ -20,8 +30,14 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
            damped = TRUE)$mean * data_x_deseason[[idx]]$si_out
     }, error = function(err) {
       print(err)
-      print(paste0("While generating Holt damped for TS with index: ", idx, ". Using undamped instead."))
-      return(fcast_holt)
+      print(
+        paste0(
+          "..while generating Holt damped for TS with index: ",
+          idx,
+          ". Using naive2 instead."
+        )
+      )
+      return(fcast_naive2)
     })
   fcast_theta_classic <-
     theta_classic(input = data_x_deseason[[idx]]$output, fcast_horiz = fcast_horiz)$mean * data_x_deseason[[idx]]$si_out
