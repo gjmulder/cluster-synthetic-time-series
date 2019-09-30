@@ -50,12 +50,12 @@ compute_cl_metrics <-
   function(cl) {
     compute_int_metrics <- function(x) {
       metrics <- c("pbm")
-        # c("calinski_harabasz",
-        #   "gamma",
-        #   "gdi42",
-        #   "pbm",
-        #   "point_biserial",
-        #   "silhouette")
+      # c("calinski_harabasz",
+      #   "gamma",
+      #   "gdi42",
+      #   "pbm",
+      #   "point_biserial",
+      #   "silhouette")
       return(intCriteria(cl$k_nrep_dists[[x]], cl$k_nrep_clusters[[x]], metrics))
     }
 
@@ -83,7 +83,7 @@ compute_cl_metrics <-
 
 plot_metrics <- function(metrics_df, title, fname) {
   metrics_df %>%
-    gather(metric, value, -k) ->
+    gather(metric, value,-k) ->
     results_df
 
   gg <-
@@ -91,11 +91,11 @@ plot_metrics <- function(metrics_df, title, fname) {
     ggtitle(title) +
     geom_point(size = 0.25, alpha = 0.5) +
     geom_smooth() +
-    facet_wrap(~ metric, scales = "free")
+    facet_wrap( ~ metric, scales = "free")
   print(gg)
 
   ggsave(
-    paste0(fname, ".png"),
+    paste0("intmet_", fname, ".png"),
     dpi = 100,
     scale = 5,
     width = 2,

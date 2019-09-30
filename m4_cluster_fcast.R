@@ -5,7 +5,7 @@ library(dtwclust)
 library(ggplot2)
 
 set.seed(42)
-options(warn = 2)
+options(warn = 2, width = 1024)
 source("fcast.R")
 source("cluster.R")
 
@@ -16,20 +16,32 @@ m4_season <- "Quaterly"
 fcast_horiz <- 8
 freq <- 4
 
-num_ts <- NA
+num_ts <- 46341 #46341
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)
 err_names <- c("sMAPE", "MASE", "OWA")
 
+
+###########################################################################
+# Preprocess M4 data ####
+
+if (is.na(num_ts)) {
+  m4_data <- Filter(function(ts)
+    ts$period == m4_season, M4)
+} else {
+  m4_data <- sample(Filter(function(ts)
+    ts$period == m4_season, M4), num_ts)
+}
+
 title <-
   paste0(
-    num_ts,
-    " TS sampled from M4 deseasonalised ",
+    length(m4_data),
+    " TS from M4 ",
     m4_season,
-    ", ",
+    ", interpolated to length ",
     ts_len,
-    " interpolated length, PAM + L2, clustering from k=",
+    ", PAM + L2, clustering from k=",
     min(k_range),
     " to k=",
     max(k_range),
@@ -40,24 +52,15 @@ title <-
 fname <-
   paste0(
     "nts",
-    num_ts,
+    length(m4_data),
     "_m4_",
     tolower(substr(m4_season, 1, 3)),
     "_tslen",
     ts_len,
-    "_pam_l2_intmet_nrep",
+    "_pam_l2_nrep",
     nrep
   )
-
-###########################################################################
-# Preprocess M4 data ####
-
 print(title)
-m4_data <-
-  Filter(function(ts)
-    ts$period == m4_season, M4)
-# sample(Filter(function(ts)
-#   ts$period == m4_season, M4), num_ts)
 
 # M4 Competition only data
 m4_data_x <-
@@ -77,34 +80,6 @@ m4_data_x_inter <-
   lapply(m4_data_x_deseason, function(ts)
     return(reinterpolate(ts$output, ts_len)))
 
-# m4_data_type <-
-#   as.integer(unlist(lapply(m4_data, function(ts)
-#     return(ts$type))))
-
-print(summary(unlist(lapply(m4_data, function(x)
-  return(x$n)))))
-
-###########################################################################
-# Cluster M4 deseasonalised and interpolated TS ####
-
-print(paste0(
-  "Clustering from k=",
-  min(k_range),
-  " to k=",
-  max(k_range),
-  ", for ",
-  nrep,
-  " reps"
-))
-cl <- cluster_ts(m4_data_x_inter, k_range, nrep)
-
-print(paste0(
-  "Computing clustering metrics for ",
-  length(cl$k_nrep_k),
-  " cluster models"
-))
-cl_metrics_df <- compute_cl_metrics(cl)
-
 ###########################################################################
 # Post-M4 Competition data ####
 
@@ -118,8 +93,14 @@ m4_data_x_post_deseason <-
   lapply(m4_data_post_x, function(x)
     return(deseasonalise(x, fcast_horiz)))
 
-remove(m4_data)
-gc(verbose = TRUE)
+# remove(m4_data)
+# gc(verbose = TRUE)
+
+# m4_data_type <-
+#   as.integer(unlist(lapply(m4_data, function(ts)
+#     return(ts$type))))
+
+print(summary(unlist(m4_data_post_x)))
 
 ###########################################################################
 # Forecast each TS using each of the benchmark methods ####
@@ -179,6 +160,27 @@ mean_errs_post_df <-
         colMeans(mean_errs_post_df / mean_errs_post_df$naive2))
 rownames(mean_errs_post_df) <- err_names
 print(round(mean_errs_post_df, 3))
+
+###########################################################################
+# Cluster M4 deseasonalised and interpolated TS ####
+
+print(paste0(
+  "Clustering from k=",
+  min(k_range),
+  " to k=",
+  max(k_range),
+  ", for ",
+  nrep,
+  " reps"
+))
+cl <- cluster_ts(m4_data_x_inter, k_range, nrep)
+
+print(paste0(
+  "Computing clustering metrics for ",
+  length(cl$k_nrep_k),
+  " cluster models"
+))
+cl_metrics_df <- compute_cl_metrics(cl)
 
 ###########################################################################
 # Select the best forecast type per M4 TS cluster ####
@@ -299,7 +301,7 @@ gg <-
   geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
 print(gg)
 ggsave(
-  paste0(fname, ".png"),
+  paste0("stmod_", fname, ".png"),
   dpi = 100,
   scale = 5,
   width = 2,
