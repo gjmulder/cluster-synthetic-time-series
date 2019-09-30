@@ -12,16 +12,15 @@ source("cluster.R")
 ###########################################################################
 # Config ####
 
-m4_season <- "Quaterly"
+m4_season <- "Quarterly"
 fcast_horiz <- 8
 freq <- 4
 
-num_ts <- 46341 #46341
+num_ts <- NA #46341
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)
 err_names <- c("sMAPE", "MASE", "OWA")
-
 
 ###########################################################################
 # Preprocess M4 data ####
