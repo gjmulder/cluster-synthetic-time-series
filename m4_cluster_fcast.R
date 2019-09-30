@@ -16,7 +16,7 @@ m4_season <- "Monthly"
 fcast_horiz <- 18
 freq <- 12
 
-num_ts <- 46000
+num_ts <- NA
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)
@@ -53,11 +53,11 @@ fname <-
 # Preprocess M4 data ####
 
 print(title)
-# Filter(function(ts)
-#   ts$period == m4_season, M4)
 m4_data <-
-  sample(Filter(function(ts)
-    ts$period == m4_season, M4), num_ts)
+  Filter(function(ts)
+    ts$period == m4_season, M4)
+# sample(Filter(function(ts)
+#   ts$period == m4_season, M4), num_ts)
 
 # M4 Competition only data
 m4_data_x <-
@@ -203,7 +203,7 @@ cl_select_best_fcast <-
     # print(cl_fcast_errs_df)
 
     # Find best forecast method using OWA for cl_n
-    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA", ]))
+    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
     print(best_cl_n)
 
     # Return the out of sample errors
@@ -278,22 +278,31 @@ cl_best_ks %>%
 cl_best_ks_df$k <- idx_df$k
 colnames(cl_best_ks_df) <- c(err_names, "k")
 print("Best OWA clustered result:")
-print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA), ], 3))
+print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA),], 3))
 
 cl_best_ks_df %>%
-  gather(metric, error,-k) ->
+  gather(metric, error, -k) ->
   results_df
 
 benchmark_best_df <-
   data.frame(metric = err_names,
              error = unlist(lapply(err_names, function(err)
                return(
-                 min(mean_errs_post_df[err, ])
+                 min(mean_errs_post_df[err,])
                ))))
+
 gg <-
   ggplot(results_df, aes(x = k, y = error)) +
   ggtitle(title) +
   geom_line() +
-  facet_wrap( ~ metric, scales = "free_y") +
+  facet_wrap(~ metric, scales = "free_y") +
   geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
 print(gg)
+ggsave(
+  paste0(fname, ".png"),
+  dpi = 100,
+  scale = 5,
+  width = 2,
+  height = 2,
+  units = "in"
+)
