@@ -20,8 +20,8 @@ multi_fit_ts <- function(idx, data_x, data_x_deseason) {
            damped = TRUE)$mean * data_x_deseason[[idx]]$si_out
     }, error = function(err) {
       print(err)
-      print(paste0("While generating Holt damped for TS with index: ", idx, ". Using undamped instead."))
-      return(fcast_holt)
+      print(paste0("While generating Holt damped for TS with index: ", idx, ". Using naive instead."))
+      return(fcast_naive)
     })
   fcast_theta_classic <-
     theta_classic(input = data_x_deseason[[idx]]$output, fcast_horiz = fcast_horiz)$mean * data_x_deseason[[idx]]$si_out
