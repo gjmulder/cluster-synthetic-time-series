@@ -12,9 +12,9 @@ source("cluster.R")
 ###########################################################################
 # Config ####
 
-m4_season <- "Monthly"
-fcast_horiz <- 18
-freq <- 12
+m4_season <- "Quaterly"
+fcast_horiz <- 8
+freq <- 4
 
 num_ts <- NA
 ts_len <- 480
