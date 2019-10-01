@@ -16,7 +16,7 @@ m4_season <- "Quarterly"
 fcast_horiz <- 8
 freq <- 4
 
-num_ts <- NA #46341
+num_ts <- 1200 #46341
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)
@@ -92,13 +92,12 @@ m4_data_x_post_deseason <-
   lapply(m4_data_post_x, function(x)
     return(deseasonalise(x, fcast_horiz)))
 
-# remove(m4_data)
-# gc(verbose = TRUE)
-
 # m4_data_type <-
 #   as.integer(unlist(lapply(m4_data, function(ts)
 #     return(ts$type))))
 
+remove(m4_data)
+gc(verbose = TRUE)
 print(summary(unlist(m4_data_post_x)))
 
 ###########################################################################
@@ -193,7 +192,7 @@ cl_select_best_fcast <-
     print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
     cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
 
-    # Compute mean errors for cl_n
+    # Compute mean in-sample errors for cl_n
     cl_fcast_errs_df <-
       as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs[cl_n_idx]))
     colnames(cl_fcast_errs_df) <- fcast_names
@@ -203,7 +202,7 @@ cl_select_best_fcast <-
     rownames(cl_fcast_errs_df) <- err_names
     # print(cl_fcast_errs_df)
 
-    # Find best forecast method using OWA for cl_n
+    # Find best forecast method using in-sample OWA for cl_n
     best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
     print(best_cl_n)
 
