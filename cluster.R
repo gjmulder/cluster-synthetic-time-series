@@ -12,7 +12,7 @@ cluster_ts <- function(data_x, k_range, nrep) {
     data_x,
     k = k_range,
     distance = "l2",
-    centroid = "pam",
+    centroid = "median",
     seed = 42,
     trace = FALSE,
     control = partitional_control(nrep = nrep),

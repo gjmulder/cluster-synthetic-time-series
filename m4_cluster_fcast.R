@@ -16,7 +16,7 @@ m4_season <- "Monthly"
 fcast_horiz <- 18
 freq <- 12
 
-num_ts <- 46341 #46341
+num_ts <- NA #46341
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)

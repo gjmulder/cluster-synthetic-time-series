@@ -5,5 +5,6 @@ for (num_ts in 46342:46341) {
     tsclust(lapply(1:num_ts, function(x)
       return(0)),
       k = 2,
+      centroid = "median",
       distance = "l2")
 }
