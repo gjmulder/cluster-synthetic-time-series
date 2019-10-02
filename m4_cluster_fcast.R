@@ -12,16 +12,15 @@ source("cluster.R")
 ###########################################################################
 # Config ####
 
-m4_season <- "Monthly"
-fcast_horiz <- 18
-freq <- 12
+m4_season <- "Quarterly"
+fcast_horiz <- 8
+freq <- 4
 
-num_ts <- 1000 #46341
+num_ts <- 2000 #46341
 ts_len <- 480
-nrep <- 11
+nrep <- 5
 k_range <- c(3:20)
 err_names <- c("sMAPE", "MASE", "OWA")
-
 
 ###########################################################################
 # Preprocess M4 data ####
@@ -34,6 +33,17 @@ if (is.na(num_ts)) {
     ts$period == m4_season, M4), num_ts)
 }
 
+fname <-
+  paste0(
+    "nts",
+    length(m4_data),
+    "_m4_",
+    tolower(substr(m4_season, 1, 3)),
+    "_tslen",
+    ts_len,
+    "_pam_l2_nrep",
+    nrep
+  )
 title <-
   paste0(
     length(m4_data),
@@ -49,28 +59,15 @@ title <-
     nrep,
     " clustering reps:"
   )
-fname <-
-  paste0(
-    "nts",
-    length(m4_data),
-    "_m4_",
-    tolower(substr(m4_season, 1, 3)),
-    "_tslen",
-    ts_len,
-    "_pam_l2_nrep",
-    nrep
-  )
 print(title)
 
 # M4 Competition only data
 m4_data_x <-
   lapply(m4_data, function(ts)
-    return(subset(ts$x, end = length(ts$x) - fcast_horiz)))
+    return(ts$x))
 m4_data_xx <-
   lapply(m4_data, function(ts)
-    return(subset(ts$x, start = (
-      length(ts$x) - fcast_horiz + 1
-    ))))
+    return(ts$xx))
 
 # Deseasonalise and linearly interpolate to ts_len
 m4_data_x_deseason <-
@@ -80,32 +77,14 @@ m4_data_x_inter <-
   lapply(m4_data_x_deseason, function(ts)
     return(reinterpolate(ts$output, ts_len)))
 
-###########################################################################
-# Post-M4 Competition data ####
-
-m4_data_post_x <-
-  lapply(m4_data, function(ts)
-    return(ts$x))
-m4_data_post_xx <-
-  lapply(m4_data, function(ts)
-    return(ts$xx))
-m4_data_x_post_deseason <-
-  lapply(m4_data_post_x, function(x)
-    return(deseasonalise(x, fcast_horiz)))
-
 remove(m4_data)
-gc()
-
-# m4_data_type <-
-#   as.integer(unlist(lapply(m4_data, function(ts)
-#     return(ts$type))))
-
-print(summary(unlist(m4_data_post_x)))
+gc(verbose = TRUE)
+print(summary(unlist(m4_data_x)))
 
 ###########################################################################
 # Forecast each TS using each of the benchmark methods ####
 
-print("M4 Competition estimates:")
+print("M4 Competition data:")
 fcasts <-
   lapply(1:length(m4_data_x),
          multi_fit_ts,
@@ -130,36 +109,6 @@ mean_errs_df <-
         colMeans(mean_errs_df / mean_errs_df$naive2))
 rownames(mean_errs_df) <- err_names
 print(round(mean_errs_df, 3))
-
-###########################################################################
-# Post-M4 forecast each TS using each of the benchmark methods ####
-
-print("M4 Competition benchmark results:")
-fcasts_post <-
-  lapply(1:length(m4_data_post_x),
-         multi_fit_ts,
-         m4_data_post_x,
-         m4_data_x_post_deseason)
-
-###########################################################################
-# Post M4 compute sMAPE, MASE, and OWA ####
-
-fcast_post_errs <-
-  lapply(
-    1:length(fcasts_post),
-    compute_fcast_errs,
-    fcasts_post,
-    m4_data_post_x,
-    m4_data_post_xx
-  )
-mean_errs_post_df <-
-  as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_post_errs))
-colnames(mean_errs_post_df) <- fcast_names
-mean_errs_post_df <-
-  rbind(mean_errs_post_df,
-        colMeans(mean_errs_post_df / mean_errs_post_df$naive2))
-rownames(mean_errs_post_df) <- err_names
-print(round(mean_errs_post_df, 3))
 
 ###########################################################################
 # Cluster M4 deseasonalised and interpolated TS ####
@@ -207,8 +156,8 @@ cl_best_ks <-
     find_best_clusters,
     cl,
     fcast_names,
-    fcast_post_errs,
-    mean_errs_post_df$naive2[1:2]
+    fcast_errs,
+    mean_errs_df$naive2[1:2]
   )
 names(cl_best_ks) <- idx_df$k
 # print(lapply(cl_best_ks, round, 3))
@@ -224,24 +173,24 @@ cl_best_ks %>%
 cl_best_ks_df$k <- idx_df$k
 colnames(cl_best_ks_df) <- c(err_names, "k")
 print("Best OWA clustered result:")
-print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA),], 3))
+print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA), ], 3))
 
 cl_best_ks_df %>%
-  gather(metric, error, -k) ->
+  gather(metric, error,-k) ->
   results_df
 
 benchmark_best_df <-
   data.frame(metric = err_names,
              error = unlist(lapply(err_names, function(err)
                return(
-                 min(mean_errs_post_df[err,])
+                 min(mean_errs_df[err, ])
                ))))
 
 gg <-
   ggplot(results_df, aes(x = k, y = error)) +
   ggtitle(title) +
   geom_line() +
-  facet_wrap(~ metric, scales = "free_y") +
+  facet_wrap( ~ metric, scales = "free_y") +
   geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
 print(gg)
 ggsave(

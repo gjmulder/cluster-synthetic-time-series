@@ -87,7 +87,7 @@ cl_select_best_fcast <-
   function(cl_n,
            cl_assignment,
            fcast_names,
-           fcast_post_errs) {
+           fcast_errs) {
     cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
     print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
     cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
@@ -106,10 +106,10 @@ cl_select_best_fcast <-
     best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
     print(best_cl_n)
 
-    # Return the out of sample errors
+    # Return the best errors
     best_cl_err <-
-      bind_cols(lapply(fcast_post_errs[cl_n_idx], function(fcast_post_err, best_err)
-        return(fcast_post_err[best_err]), best_cl_n))
+      bind_cols(lapply(fcast_errs[cl_n_idx], function(fcast_err, best_err)
+        return(fcast_err[best_err]), best_cl_n))
     return(best_cl_err)
   }
 
@@ -117,8 +117,8 @@ find_best_clusters <-
   function(idx,
            cl,
            fcast_names,
-           fcast_post_errs,
-           naive2_errs_post) {
+           fcast_errs,
+           naive2_errs) {
     k <- cl$k_nrep_k[[idx]]
     cl_assignment <- cl$k_nrep_clusters[[idx]]
     print("")
@@ -130,10 +130,10 @@ find_best_clusters <-
           cl_select_best_fcast,
           cl_assignment,
           fcast_names,
-          fcast_post_errs
+          fcast_errs
         )
       ))
-    cl_best_v <- c(cl_best, mean(cl_best / naive2_errs_post))
+    cl_best_v <- c(cl_best, mean(cl_best / naive2_errs))
     names(cl_best_v) <- err_names
     # print(cl_best_v)
     return(cl_best_v)
