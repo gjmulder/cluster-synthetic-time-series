@@ -14,7 +14,8 @@ cluster_ts <- function(data_x, k_range, nrep) {
     centroid = "median",
     seed = 42,
     trace = TRUE,
-    control = partitional_control(nrep = nrep),
+    control = partitional_control(nrep = nrep,
+                                  iter.max = 1000),
     parallel = TRUE
   )
 
@@ -103,7 +104,7 @@ cl_select_best_fcast <-
     # print(cl_fcast_errs_df)
 
     # Find best forecast method using OWA for cl_n
-    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
+    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA", ]))
     print(best_cl_n)
 
     # Return the best errors
@@ -144,7 +145,7 @@ find_best_clusters <-
 
 plot_metrics <- function(metrics_df, title, fname) {
   metrics_df %>%
-    gather(metric, value,-k) ->
+    gather(metric, value, -k) ->
     results_df
 
   gg <-
@@ -152,7 +153,7 @@ plot_metrics <- function(metrics_df, title, fname) {
     ggtitle(title) +
     geom_point(size = 0.25, alpha = 0.5) +
     geom_smooth() +
-    facet_wrap( ~ metric, scales = "free")
+    facet_wrap(~ metric, scales = "free")
   print(gg)
 
   ggsave(
