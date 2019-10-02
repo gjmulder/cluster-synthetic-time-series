@@ -16,7 +16,7 @@ m4_season <- "Monthly"
 fcast_horiz <- 18
 freq <- 12
 
-num_ts <- NA #46341
+num_ts <- 1000 #46341
 ts_len <- 480
 nrep <- 11
 k_range <- c(3:20)
@@ -93,8 +93,8 @@ m4_data_x_post_deseason <-
   lapply(m4_data_post_x, function(x)
     return(deseasonalise(x, fcast_horiz)))
 
-# remove(m4_data)
-# gc(verbose = TRUE)
+remove(m4_data)
+gc()
 
 # m4_data_type <-
 #   as.integer(unlist(lapply(m4_data, function(ts)
@@ -185,62 +185,6 @@ cl_metrics_df <- compute_cl_metrics(cl)
 ###########################################################################
 # Select the best forecast type per M4 TS cluster ####
 
-cl_select_best_fcast <-
-  function(cl_n,
-           cl_assignment,
-           fcast_names,
-           fcast_post_errs) {
-    cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
-    print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
-    cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
-
-    # Compute mean errors for cl_n
-    cl_fcast_errs_df <-
-      as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs[cl_n_idx]))
-    colnames(cl_fcast_errs_df) <- fcast_names
-    cl_fcast_errs_df <-
-      rbind(cl_fcast_errs_df,
-            colMeans(cl_fcast_errs_df / cl_fcast_errs_df$naive2))
-    rownames(cl_fcast_errs_df) <- err_names
-    # print(cl_fcast_errs_df)
-
-    # Find best forecast method using OWA for cl_n
-    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
-    print(best_cl_n)
-
-    # Return the out of sample errors
-    best_cl_err <-
-      bind_cols(lapply(fcast_post_errs[cl_n_idx], function(fcast_post_err, best_err)
-        return(fcast_post_err[best_err]), best_cl_n))
-    return(best_cl_err)
-  }
-
-get_clusters <-
-  function(idx,
-           cl,
-           fcast_names,
-           fcast_post_errs,
-           naive2_errs_post) {
-    k <- cl$k_nrep_k[[idx]]
-    cl_assignment <- cl$k_nrep_clusters[[idx]]
-    print("")
-    print(paste0("k=", k))
-    cl_best <-
-      rowMeans(bind_cols(
-        lapply(
-          1:k,
-          cl_select_best_fcast,
-          cl_assignment,
-          fcast_names,
-          fcast_post_errs
-        )
-      ))
-    cl_best_v <- c(cl_best, mean(cl_best / naive2_errs_post))
-    names(cl_best_v) <- err_names
-    # print(cl_best_v)
-    return(cl_best_v)
-  }
-
 print("Finding best clustered forecasts based on OWA:")
 # Find median metric for each k
 cl_metrics_df %>%
@@ -260,7 +204,7 @@ cl_metrics_df %>%
 cl_best_ks <-
   lapply(
     idx_df$row,
-    get_clusters,
+    find_best_clusters,
     cl,
     fcast_names,
     fcast_post_errs,

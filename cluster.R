@@ -6,7 +6,6 @@ library(parallel)
 #######################################################################
 # TS clustering
 
-# cl <- interactive_clustering(m4_data_x_deseason)
 cluster_ts <- function(data_x, k_range, nrep) {
   cl_k_nrep <- tsclust(
     data_x,
@@ -14,7 +13,7 @@ cluster_ts <- function(data_x, k_range, nrep) {
     distance = "l2",
     centroid = "median",
     seed = 42,
-    trace = FALSE,
+    trace = TRUE,
     control = partitional_control(nrep = nrep),
     parallel = TRUE
   )
@@ -80,6 +79,68 @@ compute_cl_metrics <-
 
     return(metrics_df)
   }
+
+###########################################################################
+# Select the best forecast type per M4 TS cluster ####
+
+cl_select_best_fcast <-
+  function(cl_n,
+           cl_assignment,
+           fcast_names,
+           fcast_post_errs) {
+    cl_assignment %>% when(cl_assignment == cl_n) -> cl_n_match
+    print(paste0("Cluster #", cl_n, " has size: ", sum(cl_n_match)))
+    cl_n_idx <- c(1:length(cl_assignment))[cl_n_match]
+
+    # Compute mean errors for cl_n
+    cl_fcast_errs_df <-
+      as.data.frame(lapply(fcast_names, mean_fcast_errs, fcast_errs[cl_n_idx]))
+    colnames(cl_fcast_errs_df) <- fcast_names
+    cl_fcast_errs_df <-
+      rbind(cl_fcast_errs_df,
+            colMeans(cl_fcast_errs_df / cl_fcast_errs_df$naive2))
+    rownames(cl_fcast_errs_df) <- err_names
+    # print(cl_fcast_errs_df)
+
+    # Find best forecast method using OWA for cl_n
+    best_cl_n <- names(which.min(cl_fcast_errs_df["OWA",]))
+    print(best_cl_n)
+
+    # Return the out of sample errors
+    best_cl_err <-
+      bind_cols(lapply(fcast_post_errs[cl_n_idx], function(fcast_post_err, best_err)
+        return(fcast_post_err[best_err]), best_cl_n))
+    return(best_cl_err)
+  }
+
+find_best_clusters <-
+  function(idx,
+           cl,
+           fcast_names,
+           fcast_post_errs,
+           naive2_errs_post) {
+    k <- cl$k_nrep_k[[idx]]
+    cl_assignment <- cl$k_nrep_clusters[[idx]]
+    print("")
+    print(paste0("k=", k))
+    cl_best <-
+      rowMeans(bind_cols(
+        lapply(
+          1:k,
+          cl_select_best_fcast,
+          cl_assignment,
+          fcast_names,
+          fcast_post_errs
+        )
+      ))
+    cl_best_v <- c(cl_best, mean(cl_best / naive2_errs_post))
+    names(cl_best_v) <- err_names
+    # print(cl_best_v)
+    return(cl_best_v)
+  }
+
+###########################################################################
+# Plot clustering metrics as a function of k_range ####
 
 plot_metrics <- function(metrics_df, title, fname) {
   metrics_df %>%
