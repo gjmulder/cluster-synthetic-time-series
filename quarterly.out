@@ -1,7 +1,0 @@
-[1] "24000 TS from M4 Quarterly, interpolated to length 480, PAM + L2, clustering from k=4 to k=42, 3 clustering reps:"
-            used   (Mb) gc trigger   (Mb)  max used   (Mb)
-Ncells   6235729  333.1    9968622  532.4   9968622  532.4
-Vcells 144668984 1103.8  395389908 3016.6 349996615 2670.3
-   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-   19.5  1482.3  3144.0  4240.6  6340.0 82210.7 
-[1] "M4 Competition data:"

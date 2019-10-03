@@ -12,13 +12,13 @@ source("cluster.R")
 ###########################################################################
 # Config ####
 
-m4_season <- "Quarterly"
-fcast_horiz <- 8
-freq <- 4
+m4_season <- "Monthly"
+fcast_horiz <- 18
+freq <- 12
 
 num_ts <- NA #46341
 ts_len <- 480
-nrep <- 3
+nrep <- 7
 k_range <- c(2+1:20*2)
 err_names <- c("sMAPE", "MASE", "OWA")
 
@@ -41,7 +41,7 @@ fname <-
     tolower(substr(m4_season, 1, 3)),
     "_tslen",
     ts_len,
-    "_pam_l2_nrep",
+    "_med_l2_nrep",
     nrep
   )
 title <-
@@ -51,7 +51,7 @@ title <-
     m4_season,
     ", interpolated to length ",
     ts_len,
-    ", PAM + L2, clustering from k=",
+    ", Median + L2, clustering from k=",
     min(k_range),
     " to k=",
     max(k_range),
@@ -109,95 +109,97 @@ mean_errs_df <-
         colMeans(mean_errs_df / mean_errs_df$naive2))
 rownames(mean_errs_df) <- err_names
 print(round(mean_errs_df, 3))
+write_csv(as.data.frame(t(mean_errs_df)), path = paste0("benchmark_m4_", m4_season, ".csv"))
 
-###########################################################################
-# Cluster M4 deseasonalised and interpolated TS ####
-
-print(paste0(
-  "Clustering from k=",
-  min(k_range),
-  " to k=",
-  max(k_range),
-  ", for ",
-  nrep,
-  " reps"
-))
-cl <- cluster_ts(m4_data_x_inter, k_range, nrep)
-
-print(paste0(
-  "Computing clustering metrics for ",
-  length(cl$k_nrep_k),
-  " cluster models"
-))
-cl_metrics_df <- compute_cl_metrics(cl)
-
-###########################################################################
-# Select the best forecast type per M4 TS cluster ####
-
-print("Finding best clustered forecasts based on OWA:")
-# Find median metric for each k
-cl_metrics_df %>%
-  group_by(k) %>%
-  summarise(pbm = median(pbm)) ->
-  cl_medians_df
-
-# Find row index for the median metric for each k
-cl_metrics_df$row <- 1:length(cl$k_nrep_k)
-cl_metrics_df %>%
-  select(k, pbm, row) %>%
-  inner_join(cl_medians_df) %>%
-  group_by(k) %>%
-  summarise(row = max(row)) ->
-  idx_df
-
-cl_best_ks <-
-  lapply(
-    idx_df$row,
-    find_best_clusters,
-    cl,
-    fcast_names,
-    fcast_errs,
-    mean_errs_df$naive2[1:2]
-  )
-names(cl_best_ks) <- idx_df$k
-# print(lapply(cl_best_ks, round, 3))
-
-###########################################################################
-# Plot clustering errors as a function of k_range ####
-
-cl_best_ks %>%
-  bind_rows %>%
-  t %>%
-  as.data.frame ->
-  cl_best_ks_df
-cl_best_ks_df$k <- idx_df$k
-colnames(cl_best_ks_df) <- c(err_names, "k")
-print("Best OWA clustered result:")
-print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA), ], 3))
-
-cl_best_ks_df %>%
-  gather(metric, error,-k) ->
-  results_df
-
-benchmark_best_df <-
-  data.frame(metric = err_names,
-             error = unlist(lapply(err_names, function(err)
-               return(
-                 min(mean_errs_df[err, ])
-               ))))
-
-gg <-
-  ggplot(results_df, aes(x = k, y = error)) +
-  ggtitle(title) +
-  geom_line() +
-  facet_wrap( ~ metric, scales = "free_y") +
-  geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
-print(gg)
-ggsave(
-  paste0("stmod_", fname, ".png"),
-  dpi = 100,
-  scale = 5,
-  width = 2,
-  height = 2,
-  units = "in"
-)
+# ###########################################################################
+# # Cluster M4 deseasonalised and interpolated TS ####
+#
+# print(paste0(
+#   "Clustering from k=",
+#   min(k_range),
+#   " to k=",
+#   max(k_range),
+#   ", for ",
+#   nrep,
+#   " reps"
+# ))
+# cl <- cluster_ts(m4_data_x_inter, k_range, nrep)
+#
+# print(paste0(
+#   "Computing clustering metrics for ",
+#   length(cl$k_nrep_k),
+#   " cluster models"
+# ))
+# cl_metrics_df <- compute_cl_metrics(cl)
+#
+# ###########################################################################
+# # Select the best forecast type per M4 TS cluster ####
+#
+# print("Finding best clustered forecasts based on OWA:")
+# # Find median metric for each k
+# cl_metrics_df %>%
+#   group_by(k) %>%
+#   summarise(pbm = median(pbm)) ->
+#   cl_medians_df
+#
+# # Find row index for the median metric for each k
+# cl_metrics_df$row <- 1:length(cl$k_nrep_k)
+# cl_metrics_df %>%
+#   select(k, pbm, row) %>%
+#   inner_join(cl_medians_df) %>%
+#   group_by(k) %>%
+#   summarise(row = max(row)) ->
+#   idx_df
+#
+# cl_best_ks <-
+#   lapply(
+#     idx_df$row,
+#     find_best_clusters,
+#     cl,
+#     fcast_names,
+#     fcast_errs,
+#     mean_errs_df$naive2[1:2]
+#   )
+# names(cl_best_ks) <- idx_df$k
+# # print(lapply(cl_best_ks, round, 3))
+#
+# ###########################################################################
+# # Plot clustering errors as a function of k_range ####
+#
+# cl_best_ks %>%
+#   bind_rows %>%
+#   t %>%
+#   as.data.frame ->
+#   cl_best_ks_df
+# cl_best_ks_df$k <- idx_df$k
+# colnames(cl_best_ks_df) <- c(err_names, "k")
+# print("Best OWA clustered result:")
+# print(round(cl_best_ks_df[which.min(cl_best_ks_df$OWA), ], 3))
+#
+# cl_best_ks_df %>%
+#   gather(metric, error,-k) ->
+#   results_df
+#
+# benchmark_best_df <-
+#   data.frame(metric = err_names,
+#              error = unlist(lapply(err_names, function(err)
+#                return(
+#                  min(mean_errs_df[err, ])
+#                ))))
+#
+# gg <-
+#   ggplot(results_df, aes(x = k, y = error)) +
+#   ggtitle(title) +
+#   geom_line() +
+#   geom_point() +
+#   facet_wrap( ~ metric, scales = "free_y") +
+#   geom_hline(data = benchmark_best_df, aes(yintercept = error), colour = "red")
+# print(gg)
+# ggsave(
+#   paste0("stmod_", fname, ".png"),
+#   dpi = 100,
+#   scale = 5,
+#   width = 2,
+#   height = 2,
+#   units = "in"
+# )
